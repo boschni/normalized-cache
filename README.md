@@ -64,6 +64,12 @@ const { data } = cache.read({
 });
 ```
 
+## Schema
+
+Schema types allow you to define entities, relationships and fields.
+
+Learn more about the type system [here](./docs/Schema.md).
+
 ## Selectors
 
 Selectors can be used to select specific fields to a certain depth:
