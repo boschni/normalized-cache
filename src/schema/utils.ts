@@ -1,4 +1,10 @@
-import { NonNullableType, SchemaKind, ValueType } from "./types";
+import {
+  ArrayType,
+  NonNullableType,
+  ObjectType,
+  UnionType,
+  ValueType,
+} from "./types";
 import { createRecord } from "../utils/data";
 
 export function isValid(type: ValueType | undefined, value: unknown): boolean {
@@ -42,30 +48,20 @@ export function visitTypes(
     return;
   }
 
-  switch (type.kind) {
-    case SchemaKind.Object: {
-      const fields = type.getFields();
-      for (const field of Object.keys(fields)) {
-        visitTypes(fields[field].type, config);
-      }
-      break;
+  if (type instanceof ObjectType) {
+    const fields = type.getFields();
+    for (const field of Object.keys(fields)) {
+      visitTypes(fields[field].type, config);
     }
-    case SchemaKind.Array: {
-      if (type.ofType) {
-        visitTypes(type.ofType, config);
-      }
-      break;
+  } else if (type instanceof ArrayType) {
+    if (type.ofType) {
+      visitTypes(type.ofType, config);
     }
-    case SchemaKind.Union: {
-      for (const unionType of type.types) {
-        visitTypes(unionType, config);
-      }
-      break;
+  } else if (type instanceof UnionType) {
+    for (const unionType of type.types) {
+      visitTypes(unionType, config);
     }
-    case SchemaKind.NonNullable:
-      {
-        visitTypes(type.ofType, config);
-      }
-      break;
+  } else if (type instanceof NonNullableType) {
+    visitTypes(type.ofType, config);
   }
 }

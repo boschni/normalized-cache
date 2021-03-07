@@ -1,16 +1,5 @@
 import { isObject } from "../utils/data";
 
-export const SchemaKind = {
-  Array: "Array",
-  Boolean: "Boolean",
-  NonNullable: "NonNullable",
-  Null: "Null",
-  Number: "Number",
-  Object: "Object",
-  String: "String",
-  Union: "Union",
-} as const;
-
 type MaybeThunk<T> = T | (() => T);
 
 export type MergeFunction<TExisting = any, TIncoming = TExisting> = (
@@ -24,12 +13,10 @@ export interface NonNullableTypeConfig {
 }
 
 export class NonNullableType {
-  kind: "NonNullable";
   name?: string;
   ofType: ValueType;
 
   constructor(config: NonNullableTypeConfig | ValueType) {
-    this.kind = SchemaKind.NonNullable;
     if (isValueType(config)) {
       this.ofType = config;
     } else {
@@ -50,13 +37,11 @@ export interface ArrayTypeConfig {
 }
 
 export class ArrayType {
-  kind: "Array";
   name?: string;
   ofType?: ValueType;
   merge?: MergeFunction;
 
   constructor(config?: ArrayTypeConfig | ValueType) {
-    this.kind = SchemaKind.Array;
     if (isValueType(config)) {
       this.ofType = config;
     } else if (config) {
@@ -87,7 +72,6 @@ export interface ObjectFieldType {
 }
 
 export class ObjectType {
-  kind: "Object";
   name?: string;
   fields?: MaybeThunk<
     Record<string, ValueType | ValueType[] | ObjectFieldType>
@@ -99,7 +83,6 @@ export class ObjectType {
   _isOfType?: (value: any) => boolean;
 
   constructor(config: ObjectTypeConfig = {}) {
-    this.kind = SchemaKind.Object;
     this.name = config.name;
     this.fields = config.fields;
     this.id = config.id;
@@ -160,13 +143,11 @@ export interface UnionTypeConfig {
 }
 
 export class UnionType {
-  kind: "Union";
   name?: string;
   types: ValueType[];
   _resolveType?: (value: any) => ValueType | undefined;
 
   constructor(config: UnionTypeConfig | ValueType[]) {
-    this.kind = SchemaKind.Union;
     if (Array.isArray(config)) {
       this.types = config;
     } else {
@@ -201,12 +182,10 @@ export interface StringTypeConfig {
 }
 
 export class StringType {
-  kind: "String";
   name?: string;
   const?: string;
 
   constructor(config?: StringTypeConfig | string) {
-    this.kind = SchemaKind.String;
     if (typeof config === "string") {
       this.const = config;
     } else if (config) {
@@ -226,12 +205,10 @@ export interface NumberTypeConfig {
 }
 
 export class NumberType {
-  kind: "Number";
   name?: string;
   const?: number;
 
   constructor(config?: NumberTypeConfig | number) {
-    this.kind = SchemaKind.Number;
     if (typeof config === "number") {
       this.const = config;
     } else if (config) {
@@ -251,12 +228,10 @@ export interface BooleanTypeConfig {
 }
 
 export class BooleanType {
-  kind: "Boolean";
   name?: string;
   const?: boolean;
 
   constructor(config?: BooleanTypeConfig | boolean) {
-    this.kind = SchemaKind.Boolean;
     if (typeof config === "boolean") {
       this.const = config;
     } else if (config) {
@@ -275,11 +250,9 @@ export interface NullTypeConfig {
 }
 
 export class NullType {
-  kind: "Null";
   name?: string;
 
   constructor(config?: NullTypeConfig) {
-    this.kind = SchemaKind.Null;
     if (config) {
       this.name = config.name;
     }
@@ -293,15 +266,24 @@ export class NullType {
 export type ValueType =
   | ArrayType
   | BooleanType
+  | NonNullableType
   | NullType
   | NumberType
   | ObjectType
   | StringType
-  | NonNullableType
   | UnionType;
 
 function isValueType(value: unknown): value is ValueType {
-  return Boolean(isObject(value) && value.kind);
+  return (
+    value instanceof ArrayType ||
+    value instanceof BooleanType ||
+    value instanceof NonNullableType ||
+    value instanceof NullType ||
+    value instanceof NumberType ||
+    value instanceof ObjectType ||
+    value instanceof StringType ||
+    value instanceof UnionType
+  );
 }
 
 export const schema = {

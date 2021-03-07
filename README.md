@@ -10,6 +10,7 @@ The normalized cache provides the following functionality:
 - Field invalidation
 - Field staleness
 - Garbage collection
+- Around 5 KB gzipped
 
 ## Setup
 
@@ -24,9 +25,13 @@ npm install --save normalized-cache
 ```js
 import { Cache, schema } from "normalized-cache";
 
-const Author = schema.object({ name: "Author" });
+const Author = schema.object({
+  name: "Author",
+});
 
-const Comment = schema.object({ name: "Commment" });
+const Comment = schema.object({
+  name: "Commment",
+});
 
 const Post = schema.object({
   name: "Post",
@@ -36,7 +41,9 @@ const Post = schema.object({
   },
 });
 
-const cache = new Cache({ types: [Post] });
+const cache = new Cache({
+  types: [Post],
+});
 
 cache.write({
   type: "Post",
@@ -51,7 +58,10 @@ cache.write({
   },
 });
 
-const { data } = cache.read({ type: "Post", id: "1" });
+const { data } = cache.read({
+  type: "Post",
+  id: "1",
+});
 ```
 
 ## Selectors

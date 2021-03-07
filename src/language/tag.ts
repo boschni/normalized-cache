@@ -6,9 +6,9 @@ const CACHE: Record<string, SelectorNode> = {};
 export function cql(input: TemplateStringsArray): SelectorNode {
   const src = input.join("").trim();
 
-  if (CACHE[src]) {
-    return CACHE[src];
+  if (!CACHE[src]) {
+    CACHE[src] = parse(src);
   }
 
-  return parse(src);
+  return CACHE[src];
 }
