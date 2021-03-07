@@ -1,6 +1,4 @@
 export const NodeType = {
-  Argument: "Argument",
-  Directive: "Directive",
   Field: "Field",
   FragmentDefinition: "FragmentDefinition",
   InlineFragment: "InlineFragment",
@@ -8,8 +6,6 @@ export const NodeType = {
   NamedType: "NamedType",
   SelectionSet: "SelectionSet",
   Star: "Star",
-  Value: "Value",
-  Variable: "Variable",
 } as const;
 
 export interface FragmentDefinitionNode {
@@ -34,15 +30,7 @@ export interface FieldNode {
   kind: "Field";
   alias?: NameNode;
   name: NameNode;
-  arguments?: ArgumentNode[];
-  directives?: DirectiveNode[];
   selectionSet?: SelectionSetNode;
-}
-
-export interface ArgumentNode {
-  kind: "Argument";
-  name: NameNode;
-  value: ValueNode | VariableNode;
 }
 
 export interface NameNode {
@@ -55,25 +43,10 @@ export interface NamedTypeNode {
   name: NameNode;
 }
 
-export interface ValueNode {
-  kind: "Value";
-  value: unknown;
-}
-
-export interface VariableNode {
-  kind: "Variable";
-  name: NameNode;
-}
-
 export interface InlineFragmentNode {
   kind: "InlineFragment";
   typeCondition?: NamedTypeNode;
   selectionSet: SelectionSetNode;
-}
-
-export interface DirectiveNode {
-  kind: "Directive";
-  name: NameNode;
 }
 
 export type SelectorNode = FragmentDefinitionNode | SelectionSetNode;

@@ -13,6 +13,26 @@ describe("language.parse", () => {
     expect(ast).toEqual(result);
   });
 
+  it("should be able to parse quoted field", () => {
+    const ast = parse('{ "fiel d" field }');
+
+    const result: SelectionSetNode = {
+      kind: "SelectionSet",
+      selections: [
+        {
+          kind: "Field",
+          name: { kind: "Name", value: "fiel d" },
+        },
+        {
+          kind: "Field",
+          name: { kind: "Name", value: "field" },
+        },
+      ],
+    };
+
+    expect(ast).toEqual(result);
+  });
+
   it("should be able to parse one field", () => {
     const ast = parse("{ field }");
 
@@ -119,112 +139,6 @@ describe("language.parse", () => {
         {
           kind: "Field",
           name: { kind: "Name", value: "field3" },
-        },
-      ],
-    };
-
-    expect(ast).toEqual(result);
-  });
-
-  it("should be able to parse directives", () => {
-    const ast = parse("{ field1 @upper @lower field2 }");
-
-    const result: SelectionSetNode = {
-      kind: "SelectionSet",
-      selections: [
-        {
-          kind: "Field",
-          name: { kind: "Name", value: "field1" },
-          directives: [
-            { kind: "Directive", name: { kind: "Name", value: "upper" } },
-            { kind: "Directive", name: { kind: "Name", value: "lower" } },
-          ],
-        },
-        {
-          kind: "Field",
-          name: { kind: "Name", value: "field2" },
-        },
-      ],
-    };
-
-    expect(ast).toEqual(result);
-  });
-
-  it("should be able to parse one argument", () => {
-    const ast = parse("{ field(int: 1) }");
-
-    const result: SelectionSetNode = {
-      kind: "SelectionSet",
-      selections: [
-        {
-          kind: "Field",
-          name: { kind: "Name", value: "field" },
-          arguments: [
-            {
-              kind: "Argument",
-              name: { kind: "Name", value: "int" },
-              value: { kind: "Value", value: 1 },
-            },
-          ],
-        },
-      ],
-    };
-
-    expect(ast).toEqual(result);
-  });
-
-  it("should be able to parse multiple arguments", () => {
-    const ast = parse(
-      `{ field(int: 1.1, neg: -1.5, str: "stri\\"ng", empty: "",
-      bool:true,false: false, var: $input ) }`
-    );
-
-    const result: SelectionSetNode = {
-      kind: "SelectionSet",
-      selections: [
-        {
-          kind: "Field",
-          name: { kind: "Name", value: "field" },
-          arguments: [
-            {
-              kind: "Argument",
-              name: { kind: "Name", value: "int" },
-              value: { kind: "Value", value: 1.1 },
-            },
-            {
-              kind: "Argument",
-              name: { kind: "Name", value: "neg" },
-              value: { kind: "Value", value: -1.5 },
-            },
-            {
-              kind: "Argument",
-              name: { kind: "Name", value: "str" },
-              value: { kind: "Value", value: `stri\\"ng` },
-            },
-            {
-              kind: "Argument",
-              name: { kind: "Name", value: "empty" },
-              value: { kind: "Value", value: "" },
-            },
-            {
-              kind: "Argument",
-              name: { kind: "Name", value: "bool" },
-              value: { kind: "Value", value: true },
-            },
-            {
-              kind: "Argument",
-              name: { kind: "Name", value: "false" },
-              value: { kind: "Value", value: false },
-            },
-            {
-              kind: "Argument",
-              name: { kind: "Name", value: "var" },
-              value: {
-                kind: "Variable",
-                name: { kind: "Name", value: "input" },
-              },
-            },
-          ],
         },
       ],
     };

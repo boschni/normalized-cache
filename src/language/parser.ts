@@ -1,7 +1,5 @@
 import { ErrorCode, invariant } from "../utils/invariant";
 import {
-  ArgumentNode,
-  DirectiveNode,
   FieldNode,
   FragmentDefinitionNode,
   InlineFragmentNode,
@@ -10,8 +8,6 @@ import {
   SelectionSetNode,
   SelectorNode,
   StarNode,
-  ValueNode,
-  VariableNode,
 } from "./ast";
 
 type Parser = (state: ParserState) => ParserState;
@@ -139,62 +135,17 @@ const name = map(
   (result): NameNode => ({ kind: "Name", value: result })
 );
 
-const stringValue = map(regex(/^"((?:\\.|.)*?)"/), (result) =>
-  result.substr(1, result.length - 2)
+const quotedName = map(
+  regex(/^"((?:\\.|.)*?)"/),
+  (result): NameNode => ({
+    kind: "Name",
+    value: result.substr(1, result.length - 2),
+  })
 );
 
-const numberValue = map(
-  regex(/^-?(0|[1-9][0-9]*)([.][0-9]+)?([eE][+-]?[0-9]+)?/),
-  (result) => Number(result)
-);
-
-const trueValue = map(str("true"), () => true);
-
-const falseValue = map(str("false"), () => false);
-
-const value = map(
-  choice([stringValue, numberValue, trueValue, falseValue]),
-  (result): ValueNode => ({ kind: NodeType.Value, value: result })
-);
+const fieldName = choice([name, quotedName]);
 
 const star = map(str("*"), (): StarNode => ({ kind: "Star" }));
-
-const variable = map(
-  sequence([str("$"), name]),
-  (result): VariableNode => ({
-    kind: NodeType.Variable,
-    name: result[1],
-  })
-);
-
-const arg = map(
-  sequence([
-    optionalWhitespace,
-    optional(str(",")),
-    optionalWhitespace,
-    name,
-    optionalWhitespace,
-    str(":"),
-    optionalWhitespace,
-    choice([variable, value]),
-  ]),
-  (result): ArgumentNode => ({
-    kind: NodeType.Argument,
-    name: result[3],
-    value: result[7],
-  })
-);
-
-const args = map(
-  sequence([
-    optionalWhitespace,
-    str("("),
-    many(arg),
-    optionalWhitespace,
-    str(")"),
-  ]),
-  (result): ArgumentNode[] => result[2]
-);
 
 const selectionSet = recursive(() =>
   map(
@@ -206,30 +157,13 @@ const selectionSet = recursive(() =>
   )
 );
 
-const alias = map(sequence([name, str(":")]), (result) => result[0]);
-
-const directive = map(
-  sequence([str("@"), name]),
-  (result): DirectiveNode => ({
-    kind: NodeType.Directive,
-    name: result[1],
-  })
-);
-
-const directives = map(
-  many(map(sequence([optionalWhitespace, directive]), (result) => result[1])),
-  (result) => (result.length ? result : undefined)
-);
+const alias = map(sequence([fieldName, str(":")]), (result) => result[0]);
 
 const field = map(
   sequence([
     optional(alias),
     optionalWhitespace,
-    name,
-    optionalWhitespace,
-    optional(args),
-    optionalWhitespace,
-    directives,
+    fieldName,
     optionalWhitespace,
     optional(selectionSet),
   ]),
@@ -237,9 +171,7 @@ const field = map(
     kind: NodeType.Field,
     alias: result[0],
     name: result[2],
-    arguments: result[4],
-    directives: result[6],
-    selectionSet: result[8],
+    selectionSet: result[4],
   })
 );
 

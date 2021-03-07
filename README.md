@@ -4,8 +4,8 @@ The normalized cache provides the following functionality:
 
 - Data normalization
 - Data denormalization
-- Data subscriptions / change detection
 - Data validation
+- Data subscriptions / change detection
 - Optimistic updates
 - Field invalidation
 - Field staleness
@@ -74,6 +74,14 @@ Use the star operator to select all fields on a certain level:
 
 ```js
 const selector = cql`{ * comments { text } }`;
+```
+
+### Non-alphanumeric fields
+
+Quotes can be used to specify non-aplhanumeric fields:
+
+```js
+const selector = cql`{ "field with spaces" { text } }`;
 ```
 
 ## Writing

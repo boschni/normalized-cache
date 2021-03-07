@@ -25,6 +25,14 @@ describe("Read", () => {
     expect(data).toEqual({ a: "a", b: "b" });
   });
 
+  it("should be able to read fields with spaces with a selector", () => {
+    const Type = schema.object({ name: "Type" });
+    const cache = new Cache({ types: [Type] });
+    cache.write({ type: "Type", data: { "a a": "a", b: "b" } });
+    const { data } = cache.read({ type: "Type", select: cql`{ "a a" b }` });
+    expect(data).toEqual({ "a a": "a", b: "b" });
+  });
+
   it("should be able to read all fields with the star selector", () => {
     const Type = schema.object({ name: "Type" });
     const cache = new Cache({ types: [Type] });
