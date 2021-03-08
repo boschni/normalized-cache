@@ -1,4 +1,9 @@
-import { ArrayType, ObjectType, UnionType, ValueType } from "../schema/types";
+import {
+  isArrayType,
+  isObjectType,
+  resolveWrappedType,
+  ValueType,
+} from "../schema/types";
 import type { Cache } from "../Cache";
 import type {
   FieldNode,
@@ -93,12 +98,10 @@ function traverseValue(
       return traverseEntity(ctx, data.___ref, type, selectionSet);
     }
 
-    if (type instanceof UnionType) {
-      const resolvedType = type.resolveType(data);
-      if (!resolvedType) {
-        return;
-      }
-      type = resolvedType;
+    type = resolveWrappedType(type, data);
+
+    if (!type) {
+      return;
     }
   }
 
@@ -118,8 +121,9 @@ function traverseValue(
       }
 
       if (fields[fieldName].selectionSet) {
-        const objectField =
-          type instanceof ObjectType ? type.getfield(fieldName) : undefined;
+        const objectField = isObjectType(type)
+          ? type.getfield(fieldName)
+          : undefined;
 
         traverseValue(
           ctx,
@@ -132,7 +136,7 @@ function traverseValue(
       ctx.path.pop();
     }
   } else if (Array.isArray(data)) {
-    const ofType = type instanceof ArrayType ? type.ofType : undefined;
+    const ofType = isArrayType(type) ? type.ofType : undefined;
     for (let i = 0; i < data.length; i++) {
       ctx.path.push(i);
       traverseValue(ctx, selectionSet, ofType, data[i]);

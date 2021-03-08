@@ -1,16 +1,17 @@
-import { ArrayType, ObjectType, UnionType, ValueType } from "../schema/types";
-import type {
-  EntitiesRecord,
-  Entity,
-  Ref,
-  InvalidField,
-  PlainObjectWithMeta,
-} from "../types";
 import {
-  ensureEntityID,
-  identify,
+  isArrayType,
+  isObjectType,
+  ValueType,
+  resolveWrappedType,
+} from "../schema/types";
+import type { EntitiesRecord, Entity, Ref, InvalidField } from "../types";
+import {
   createReference,
   isObjectWithMeta,
+  identifyByData,
+  identifyById,
+  identifyByType,
+  isReference,
 } from "../utils/cache";
 import { createRecord, isObject, hasOwn } from "../utils/data";
 import type { Cache } from "../Cache";
@@ -18,7 +19,7 @@ import { persistEntities } from "./shared";
 import { isValid } from "../schema/utils";
 
 interface WriteOptions {
-  data: any;
+  data: unknown;
   expiresAt?: number;
   id?: unknown;
   optimistic?: boolean;
@@ -35,7 +36,7 @@ interface WriteContext {
   cache: Cache;
   entities: EntitiesRecord;
   expiresAt: number;
-  incomingParents: any[];
+  incomingParents: unknown[];
   invalidFields: InvalidField[];
   optimistic?: boolean;
   path: (string | number)[];
@@ -43,7 +44,19 @@ interface WriteContext {
 }
 
 export function executeWrite(cache: Cache, options: WriteOptions): WriteResult {
-  const entityID = ensureEntityID(options.type, options.id, options.data);
+  let entityID;
+
+  if (options.id !== undefined) {
+    entityID = identifyById(options.type, options.id);
+  } else if (options.data !== undefined) {
+    entityID = identifyByData(options.type, options.data);
+  }
+
+  // Fallback to the type name
+  if (!entityID) {
+    entityID = identifyByType(options.type)!;
+  }
+
   const existingEntity = cache.get(entityID, options.optimistic);
 
   const ctx: WriteContext = {
@@ -89,19 +102,11 @@ function processIncoming(
   let entityID: string | undefined;
   let entityRef: Ref | undefined;
 
-  // Try to resolve unions
-  if (type instanceof UnionType) {
-    type = type.resolveType(incoming);
-    if (!type) {
-      addInvalidField(ctx, incoming);
-    }
-  }
-
-  if (type && type.name) {
+  if (type) {
     if (!ctx.path.length) {
       entityID = ctx.rootEntityID;
-    } else {
-      entityID = identify({ type, data: incoming, strict: true });
+    } else if (type) {
+      entityID = identifyByData(type, incoming);
     }
 
     if (entityID) {
@@ -121,7 +126,12 @@ function processIncoming(
           };
         }
 
-        entity.expiresAt = isObject(incoming) ? -1 : ctx.expiresAt;
+        // If the incoming data is an object the expiry dates will be written to the fields
+        if (!isObject(incoming)) {
+          entity.expiresAt = ctx.expiresAt;
+        }
+
+        // Always remove invalidation when writing to an entity
         entity.invalidated = false;
       }
 
@@ -129,12 +139,12 @@ function processIncoming(
       existing = entity.value;
       entityRef = createReference(entityID);
     }
-  }
 
-  // Check if the value matches the schema
-  if (!isValid(type, incoming)) {
-    addInvalidField(ctx, incoming);
-    type = undefined;
+    if (!isValid(type, incoming)) {
+      addInvalidField(ctx, incoming);
+    }
+
+    type = resolveWrappedType(type, incoming);
   }
 
   let result = incoming;
@@ -146,7 +156,7 @@ function processIncoming(
     }
 
     // Validate fields which are defined in the schema but not present in the incoming data
-    if (type instanceof ObjectType) {
+    if (isObjectType(type)) {
       const fields = type.getFields();
       for (const name of Object.keys(fields)) {
         if (
@@ -161,34 +171,40 @@ function processIncoming(
     }
 
     const existingObj = isObjectWithMeta(existing) ? existing : undefined;
+    let resultObj: any;
 
-    let resultObj: PlainObjectWithMeta = {
-      ___invalidated: {},
-      ___expiresAt: {},
-    };
+    if (isReference(incoming)) {
+      resultObj = incoming;
+    } else {
+      resultObj = {
+        ___invalidated: {},
+        ___expiresAt: {},
+      };
 
-    for (const key of Object.keys(incoming)) {
-      ctx.path.push(key);
-      ctx.incomingParents.push(incoming);
+      for (const key of Object.keys(incoming)) {
+        ctx.path.push(key);
+        ctx.incomingParents.push(incoming);
 
-      resultObj.___expiresAt[key] = ctx.expiresAt;
-      resultObj.___invalidated[key] = false;
+        resultObj.___expiresAt[key] = ctx.expiresAt;
+        resultObj.___invalidated[key] = false;
 
-      const fieldType =
-        type instanceof ObjectType ? type.getfield(key)?.type : undefined;
+        const fieldType = isObjectType(type)
+          ? type.getfield(key)?.type
+          : undefined;
 
-      resultObj[key] = processIncoming(
-        ctx,
-        fieldType,
-        existingObj && existingObj[key],
-        incoming[key]
-      );
+        resultObj[key] = processIncoming(
+          ctx,
+          fieldType,
+          existingObj && existingObj[key],
+          incoming[key]
+        );
 
-      ctx.incomingParents.pop();
-      ctx.path.pop();
+        ctx.incomingParents.pop();
+        ctx.path.pop();
+      }
     }
 
-    if (type instanceof ObjectType && type.merge) {
+    if (isObjectType(type) && type.merge) {
       resultObj = type.merge(existing, resultObj);
     } else if (entity && isObjectWithMeta(entity.value)) {
       // Entities can be safely merged
@@ -215,7 +231,7 @@ function processIncoming(
 
     let resultArray: unknown[] = [];
     const existingArray = Array.isArray(existing) ? existing : undefined;
-    const ofType = type instanceof ArrayType ? type.ofType : undefined;
+    const ofType = isArrayType(type) ? type.ofType : undefined;
 
     for (let i = 0; i < incoming.length; i++) {
       ctx.path.push(i);
@@ -232,7 +248,7 @@ function processIncoming(
       ctx.path.pop();
     }
 
-    if (type instanceof ArrayType && type.merge) {
+    if (isArrayType(type) && type.merge) {
       resultArray = type.merge(existing, resultArray);
     }
 

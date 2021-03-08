@@ -9,16 +9,25 @@ import type { SelectorNode } from "./language/ast";
 import { DeleteResult, executeDelete } from "./operations/delete";
 import { executeInvalidate, InvalidateResult } from "./operations/invalidate";
 import { serializeSelector } from "./language/serializer";
-import { identify } from "./utils/cache";
+import { identifyByData, identifyById, identifyByType } from "./utils/cache";
 
-interface DeleteOptions {
+interface ReadOptions {
   id?: unknown;
   optimistic?: boolean;
   select?: SelectorNode;
   type: string;
 }
 
-interface ReadOptions {
+interface WriteOptions {
+  data: unknown;
+  expiresAt?: number;
+  id?: unknown;
+  optimistic?: boolean;
+  strict?: boolean;
+  type: string;
+}
+
+interface DeleteOptions {
   id?: unknown;
   optimistic?: boolean;
   select?: SelectorNode;
@@ -32,35 +41,19 @@ interface InvalidateOptions {
   type: string;
 }
 
-interface WatchOptions<T = any> extends ReadOptions {
-  callback: (result: ReadResult<T>, prevResult?: ReadResult<T>) => void;
+interface IdentifyOptions {
+  data?: unknown;
+  id?: unknown;
+  type: string;
 }
 
-interface WriteOptions {
-  data: unknown;
-  expiresAt?: number;
-  id?: unknown;
-  optimistic?: boolean;
-  strict?: boolean;
-  type: string;
+interface WatchOptions<T = any> extends ReadOptions {
+  callback: (result: ReadResult<T>, prevResult?: ReadResult<T>) => void;
 }
 
 interface Watch {
   options: WatchOptions;
   prevResult?: ReadResult;
-}
-
-interface IdentifyOptions {
-  data?: unknown;
-  id?: unknown;
-  type: string | ValueType;
-}
-
-interface ResolveOptions {
-  data?: unknown;
-  id?: unknown;
-  optimistic?: boolean;
-  type: string | ValueType;
 }
 
 interface CachedReadResult {
@@ -70,14 +63,34 @@ interface CachedReadResult {
 
 type OptimisticUpdateFn = (cache: Cache) => void;
 
+type UnsubscribeFn = () => void;
+
 interface OptimisticUpdate {
   id: number;
   updateFn: OptimisticUpdateFn;
 }
 
 export interface CacheConfig {
+  /**
+   * The schema types. All referenced types will be automatically added.
+   */
   types?: ValueType[];
-  strictTypeChecks?: boolean;
+  /**
+   * If enabled, only valid data will be returned from the cache.
+   */
+  strictReadTypeChecks?: boolean;
+  /**
+   * If enabled, only fields known to the schema will be returned from the cache.
+   */
+  strictReadFieldChecks?: boolean;
+  /**
+   * If enabled, only valid data will be written to the cache.
+   */
+  strictWriteTypeChecks?: boolean;
+  /**
+   * If enabled, only fields known to the schema will be written to the cache.
+   */
+  strictWriteFieldChecks?: boolean;
 }
 
 export class Cache {
@@ -121,13 +134,10 @@ export class Cache {
 
   identify(options: IdentifyOptions): string | undefined {
     const type = ensureType(this, options.type);
-    return identify({ ...options, type });
-  }
-
-  resolve(options: ResolveOptions): Entity | undefined {
-    const entityID = this.identify(options);
-    if (entityID) {
-      return this.get(entityID, options.optimistic);
+    if (options.id !== undefined) {
+      return identifyById(type, options.id);
+    } else if (options.data !== undefined) {
+      return identifyByData(type, options.data);
     }
   }
 
@@ -136,6 +146,22 @@ export class Cache {
       hasOwn(this._optimisticEntities, entityID)
       ? this._optimisticEntities[entityID]
       : this._entities[entityID];
+  }
+
+  set(entity: Entity, optimistic?: boolean): Entity {
+    const existingEntity = this.get(entity.id, optimistic);
+    const updatedEntity = replaceEqualDeep(existingEntity, entity);
+
+    if (updatedEntity !== entity) {
+      if (optimistic) {
+        this._optimisticEntities[updatedEntity.id] = updatedEntity;
+      } else {
+        this._entities[updatedEntity.id] = updatedEntity;
+      }
+      handleUpdatedEntities(this, optimistic);
+    }
+
+    return updatedEntity;
   }
 
   read<T>(options: ReadOptions): ReadResult<T> {
@@ -197,7 +223,7 @@ export class Cache {
     return result;
   }
 
-  watch<T>(options: WatchOptions<T>): () => void {
+  watch<T>(options: WatchOptions<T>): UnsubscribeFn {
     const prevResult = this.read(options);
     const watch: Watch = { options, prevResult };
     this._watches.push(watch);
@@ -206,7 +232,7 @@ export class Cache {
     };
   }
 
-  optimisticUpdate(updateFn: OptimisticUpdateFn): number {
+  addOptimisticUpdate(updateFn: OptimisticUpdateFn): number {
     const id = this._optimisticUpdateID++;
     this._optimisticUpdates.push({ id, updateFn });
     rebaseOptimisticUpdates(this);
@@ -306,18 +332,14 @@ function updateWatchers(cache: Cache) {
   }
 }
 
-function ensureType(cache: Cache, type: string | ValueType): ValueType {
-  if (typeof type !== "string") {
-    return type;
-  }
-
-  type = cache._types[type];
+function ensureType(cache: Cache, typeName: string): ValueType {
+  const type = cache._types[typeName];
 
   invariant(
     type,
     process.env.NODE_ENV === "production"
       ? ErrorCode.TYPE_NOT_FOUND
-      : `Type ${type} not found`
+      : `Type ${typeName} not found`
   );
 
   return type;
@@ -328,6 +350,7 @@ function getResultID(
   selector?: SelectorNode,
   id?: unknown
 ): string {
-  const entityID = identify({ type, id })!;
+  const entityID =
+    id !== undefined ? identifyById(type, id)! : identifyByType(type)!;
   return selector ? `${entityID}:${serializeSelector(selector)}` : entityID;
 }

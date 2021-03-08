@@ -5,7 +5,7 @@ The normalized cache provides the following functionality:
 - Data normalization
 - Data denormalization
 - Data validation
-- Data subscriptions / change detection
+- Data subscriptions
 - Optimistic updates
 - Field invalidation
 - Field staleness
@@ -62,6 +62,35 @@ const { data } = cache.read({
   type: "Post",
   id: "1",
 });
+```
+
+## API
+
+```ts
+class Cache {
+  get(entityID: string, optimistic?: boolean): Entity | undefined;
+  set(entity: Entity, optimistic?: boolean): Entity;
+  identify(options: IdentifyOptions): string | undefined;
+  read(options: ReadOptions): ReadResult;
+  write(options: WriteOptions): WriteResult;
+  delete(options: DeleteOptions): DeleteResult;
+  invalidate(options: InvalidateOptions): InvalidateResult;
+  watch(options: WatchOptions): UnsubscribeFn;
+  addOptimisticUpdate(updateFn: OptimisticUpdateFn): number;
+  removeOptimisticUpdate(id: number): void;
+  transaction(fn: () => void): void;
+  silent(fn: () => void): void;
+}
+
+const schema = {
+  array(config?: ArrayTypeConfig | ValueType): ArrayType
+  boolean(config?: BooleanTypeConfig): BooleanType
+  nonNullable(config: NonNullableTypeConfig | ValueType): NonNullableType
+  number(config?: NumberTypeConfig): NumberType
+  object(config?: ObjectTypeConfig): ObjectType
+  string(config?: StringTypeConfig | string): StringType
+  union(config: UnionTypeConfig | ValueType[]): UnionType
+}
 ```
 
 ## Schema
@@ -338,7 +367,7 @@ async function addComment(postID, text) {
     });
   }
 
-  const updateID = cache.optimisticUpdate(() => {
+  const updateID = cache.addOptimisticUpdate(() => {
     const optimisticComment = { id: uuid(), text };
     addCommentToPost(optimisticComment);
   });

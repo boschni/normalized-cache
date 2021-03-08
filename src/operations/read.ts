@@ -1,13 +1,18 @@
 import type { Cache } from "../Cache";
 import type { Entity, InvalidField, MissingField, PlainObject } from "../types";
-import { ArrayType, ObjectType, UnionType, ValueType } from "../schema/types";
+import {
+  isArrayType,
+  isObjectType,
+  resolveWrappedType,
+  ValueType,
+} from "../schema/types";
 import { SelectionSetNode, SelectorNode } from "../language/ast";
-import { isObjectWithMeta, isReference } from "../utils/cache";
+import { identify, isObjectWithMeta, isReference } from "../utils/cache";
 import { hasOwn } from "../utils/data";
 import { resolveSelectionSet, getSelectionFields } from "./shared";
 import { isValid } from "../schema/utils";
 
-export interface ReadOptions {
+interface ReadOptions {
   id?: unknown;
   optimistic?: boolean;
   select?: SelectorNode;
@@ -50,7 +55,13 @@ export function executeRead<T>(
     stale: true,
   };
 
-  const entity = cache.resolve(options);
+  const entityID = identify(options.type, options.id);
+
+  if (!entityID) {
+    return result;
+  }
+
+  const entity = cache.get(entityID, options.optimistic);
 
   if (!entity) {
     return result;
@@ -123,16 +134,10 @@ function traverseValue(
       return traverseEntity(ctx, refEntity, type, selectionSet);
     }
 
-    if (type instanceof UnionType) {
-      type = type.resolveType(data);
-      if (!type) {
-        addInvalidField(ctx, data);
-      }
-    }
+    type = isValid(type, data) ? resolveWrappedType(type, data) : undefined;
 
-    if (!isValid(type, data)) {
+    if (!type) {
       addInvalidField(ctx, data);
-      type = undefined;
     }
   }
 
@@ -154,8 +159,9 @@ function traverseValue(
 
         const selectionField = selectionFields[name];
         const alias = selectionField.alias ? selectionField.alias.value : name;
-        const fieldType =
-          type instanceof ObjectType ? type.getfield(name)?.type : undefined;
+        const fieldType = isObjectType(type)
+          ? type.getfield(name)?.type
+          : undefined;
 
         result[alias] = traverseValue(
           ctx,
@@ -175,7 +181,7 @@ function traverseValue(
   }
 
   if (Array.isArray(data)) {
-    const ofType = type instanceof ArrayType ? type.ofType : undefined;
+    const ofType = isArrayType(type) ? type.ofType : undefined;
     const result: unknown[] = [];
 
     for (let i = 0; i < data.length; i++) {

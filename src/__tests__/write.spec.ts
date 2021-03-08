@@ -1,4 +1,5 @@
 import { Cache, schema } from "..";
+import { cql } from "../language/tag";
 
 describe("write", () => {
   it("should be able to write singleton entities", () => {
@@ -34,7 +35,7 @@ describe("write", () => {
   });
 
   it("should be able to write null entities", () => {
-    const Type = schema.null({ name: "Type" });
+    const Type = schema.string({ name: "Type" });
     const cache = new Cache({ types: [Type] });
     cache.write({ type: "Type", data: null });
     const { data } = cache.read({ type: "Type" });
@@ -95,7 +96,7 @@ describe("write", () => {
   it("should be able to write null values", () => {
     const Type = schema.object({
       name: "Type",
-      fields: { value: schema.null() },
+      fields: { value: schema.string() },
     });
     const cache = new Cache({ types: [Type] });
     cache.write({ type: "Type", data: { value: null } });
@@ -152,9 +153,38 @@ describe("write", () => {
     expect(data).toEqual({ value: [0, 1, 2] });
   });
 
+  it("should be able to write references", () => {
+    const Child = schema.object({ name: "Child" });
+    const Parent = schema.object({ name: "Parent", fields: { child: Child } });
+    const cache = new Cache({ types: [Parent] });
+    cache.write({ type: "Child", data: { id: "1" } });
+    cache.write({ type: "Parent", data: { child: { ___ref: "Child:1" } } });
+    const { data } = cache.read({
+      type: "Parent",
+      select: cql`{ child { id } }`,
+    });
+    expect(data).toEqual({ child: { id: "1" } });
+  });
+
   it("should normalize nested entities", () => {
     const Child = schema.object({ name: "Child" });
     const Parent = schema.object({ name: "Parent", fields: { child: Child } });
+    const cache = new Cache({ types: [Parent] });
+    cache.write({ type: "Parent", data: { child: { id: "1" } } });
+    const { data } = cache.read({ type: "Child", id: "1" });
+    expect(data).toEqual({ id: "1" });
+    expect(cache._entities).toMatchObject({
+      Parent: { id: "Parent", value: { child: { ___ref: "Child:1" } } },
+      "Child:1": { id: "Child:1", value: { id: "1" } },
+    });
+  });
+
+  it("should normalize nested entities wrapped in a non nullable type", () => {
+    const Child = schema.object({ name: "Child" });
+    const Parent = schema.object({
+      name: "Parent",
+      fields: { child: schema.nonNullable(Child) },
+    });
     const cache = new Cache({ types: [Parent] });
     cache.write({ type: "Parent", data: { child: { id: "1" } } });
     expect(cache._entities).toMatchObject({
@@ -451,6 +481,30 @@ describe("write", () => {
       Parent: { id: "Parent", value: { child: { ___ref: "Child:1" } } },
       "Child:1": { id: "Child:1", value: { id: "1", a: "a", b: "b" } },
     });
+  });
+
+  it("should be able to add an entity to an array of entities", () => {
+    const Child = schema.object({ name: "Child" });
+    const Parent = schema.array({ name: "Parent", ofType: Child });
+    const cache = new Cache({ types: [Parent] });
+    cache.write({
+      type: "Parent",
+      data: [
+        { id: "1", a: "a" },
+        { id: "2", b: "b" },
+      ],
+    });
+    const read1 = cache.read<any[]>({ type: "Parent", select: cql`{ id }` });
+    cache.write({
+      type: "Parent",
+      data: [...read1.data!, { id: "3", c: "c" }],
+    });
+    const read2 = cache.read({ type: "Parent" });
+    expect(read2.data).toEqual([
+      { id: "1", a: "a" },
+      { id: "2", b: "b" },
+      { id: "3", c: "c" },
+    ]);
   });
 
   it("should be able to write fields with arguments", () => {

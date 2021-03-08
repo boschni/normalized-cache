@@ -2,8 +2,9 @@ import type { ValueType } from "../schema/types";
 import type { Cache } from "../Cache";
 import type { SelectorNode } from "../language/ast";
 import { modify } from "./modify";
+import { identify } from "../utils/cache";
 
-export interface DeleteOptions {
+interface DeleteOptions {
   id?: unknown;
   optimistic?: boolean;
   select?: SelectorNode;
@@ -19,7 +20,13 @@ export function executeDelete(
   options: DeleteOptions
 ): DeleteResult {
   const result: DeleteResult = {};
-  const entity = cache.resolve(options);
+  const entityID = identify(options.type, options.id);
+
+  if (!entityID) {
+    return result;
+  }
+
+  const entity = cache.get(entityID, options.optimistic);
 
   if (!entity) {
     return result;

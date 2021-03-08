@@ -2,6 +2,8 @@ import { isObject } from "../utils/data";
 
 type MaybeThunk<T> = T | (() => T);
 
+type IdFunction = (value: any) => unknown;
+
 export type MergeFunction<TExisting = any, TIncoming = TExisting> = (
   existing: TExisting | undefined,
   incoming: TIncoming
@@ -10,11 +12,13 @@ export type MergeFunction<TExisting = any, TIncoming = TExisting> = (
 export interface NonNullableTypeConfig {
   name?: string;
   ofType: ValueType;
+  id?: IdFunction;
 }
 
 export class NonNullableType {
   name?: string;
   ofType: ValueType;
+  id?: IdFunction;
 
   constructor(config: NonNullableTypeConfig | ValueType) {
     if (isValueType(config)) {
@@ -22,6 +26,7 @@ export class NonNullableType {
     } else {
       this.name = config.name;
       this.ofType = config.ofType;
+      this.id = config.id;
     }
   }
 
@@ -34,12 +39,14 @@ export interface ArrayTypeConfig {
   name?: string;
   ofType?: ValueType;
   merge?: MergeFunction;
+  id?: IdFunction;
 }
 
 export class ArrayType {
   name?: string;
   ofType?: ValueType;
   merge?: MergeFunction;
+  id?: IdFunction;
 
   constructor(config?: ArrayTypeConfig | ValueType) {
     if (isValueType(config)) {
@@ -48,6 +55,7 @@ export class ArrayType {
       this.name = config.name;
       this.ofType = config.ofType;
       this.merge = config.merge;
+      this.id = config.id;
     }
   }
 
@@ -61,7 +69,7 @@ export interface ObjectTypeConfig {
   fields?: MaybeThunk<
     Record<string, ValueType | ValueType[] | ObjectFieldType>
   >;
-  id?: (value: any) => unknown;
+  id?: IdFunction;
   isOfType?: (value: any) => boolean;
   merge?: MergeFunction;
 }
@@ -73,29 +81,35 @@ export interface ObjectFieldType {
 
 export class ObjectType {
   name?: string;
-  fields?: MaybeThunk<
-    Record<string, ValueType | ValueType[] | ObjectFieldType>
-  >;
-  id?: (value: any) => unknown;
+  id?: IdFunction;
   merge?: MergeFunction;
 
-  _fields?: Record<string, ObjectFieldType>;
+  _fields?: MaybeThunk<
+    Record<string, ValueType | ValueType[] | ObjectFieldType>
+  >;
+  _resolvedFields?: Record<string, ObjectFieldType>;
   _isOfType?: (value: any) => boolean;
 
   constructor(config: ObjectTypeConfig = {}) {
     this.name = config.name;
-    this.fields = config.fields;
-    this.id = config.id;
     this.merge = config.merge;
+    this._fields = config.fields;
     this._isOfType = config.isOfType;
+    if (config.id) {
+      this.id = config.id;
+    } else {
+      this.id = (value) => (isObject(value) ? value.id : undefined);
+    }
   }
 
   getFields(): Record<string, ObjectFieldType> {
-    if (!this._fields) {
+    if (!this._resolvedFields) {
       const fields: Record<string, ObjectFieldType> = {};
 
       const fieldMap =
-        typeof this.fields === "function" ? this.fields() : this.fields || {};
+        typeof this._fields === "function"
+          ? this._fields()
+          : this._fields || {};
 
       for (const fieldName of Object.keys(fieldMap)) {
         const field = fieldMap[fieldName];
@@ -109,10 +123,10 @@ export class ObjectType {
         }
       }
 
-      return (this._fields = fields);
+      this._resolvedFields = fields;
     }
 
-    return this._fields;
+    return this._resolvedFields;
   }
 
   getfield(name: string): ObjectFieldType | undefined {
@@ -140,12 +154,14 @@ export interface UnionTypeConfig {
   name?: string;
   types: ValueType[];
   resolveType?: (value: any) => ValueType | undefined;
+  id?: IdFunction;
 }
 
 export class UnionType {
   name?: string;
   types: ValueType[];
   _resolveType?: (value: any) => ValueType | undefined;
+  id?: IdFunction;
 
   constructor(config: UnionTypeConfig | ValueType[]) {
     if (Array.isArray(config)) {
@@ -154,6 +170,7 @@ export class UnionType {
       this.name = config.name;
       this.types = config.types;
       this._resolveType = config.resolveType;
+      this.id = config.id;
     }
   }
 
@@ -179,11 +196,13 @@ export class UnionType {
 export interface StringTypeConfig {
   name?: string;
   const?: string;
+  id?: IdFunction;
 }
 
 export class StringType {
   name?: string;
   const?: string;
+  id?: IdFunction;
 
   constructor(config?: StringTypeConfig | string) {
     if (typeof config === "string") {
@@ -191,6 +210,7 @@ export class StringType {
     } else if (config) {
       this.name = config.name;
       this.const = config.const;
+      this.id = config.id;
     }
   }
 
@@ -202,11 +222,13 @@ export class StringType {
 export interface NumberTypeConfig {
   name?: string;
   const?: number;
+  id?: IdFunction;
 }
 
 export class NumberType {
   name?: string;
   const?: number;
+  id?: IdFunction;
 
   constructor(config?: NumberTypeConfig | number) {
     if (typeof config === "number") {
@@ -214,6 +236,7 @@ export class NumberType {
     } else if (config) {
       this.name = config.name;
       this.const = config.const;
+      this.id = config.id;
     }
   }
 
@@ -225,11 +248,13 @@ export class NumberType {
 export interface BooleanTypeConfig {
   name?: string;
   const?: boolean;
+  id?: IdFunction;
 }
 
 export class BooleanType {
   name?: string;
   const?: boolean;
+  id?: IdFunction;
 
   constructor(config?: BooleanTypeConfig | boolean) {
     if (typeof config === "boolean") {
@@ -237,6 +262,7 @@ export class BooleanType {
     } else if (config) {
       this.name = config.name;
       this.const = config.const;
+      this.id = config.id;
     }
   }
 
@@ -245,44 +271,83 @@ export class BooleanType {
   }
 }
 
-export interface NullTypeConfig {
-  name?: string;
-}
-
-export class NullType {
-  name?: string;
-
-  constructor(config?: NullTypeConfig) {
-    if (config) {
-      this.name = config.name;
-    }
-  }
-
-  isOfType(value: unknown): boolean {
-    return value === null;
-  }
-}
-
 export type ValueType =
   | ArrayType
   | BooleanType
   | NonNullableType
-  | NullType
   | NumberType
   | ObjectType
   | StringType
   | UnionType;
 
+export function isArrayType(value: unknown): value is ArrayType {
+  return value instanceof ArrayType;
+}
+
+export function isBooleanType(value: unknown): value is BooleanType {
+  return value instanceof BooleanType;
+}
+
+export function isNonNullableType(value: unknown): value is NonNullableType {
+  return value instanceof NonNullableType;
+}
+
+export function isNumberType(value: unknown): value is NumberType {
+  return value instanceof NumberType;
+}
+
+export function isObjectType(value: unknown): value is ObjectType {
+  return value instanceof ObjectType;
+}
+
+export function isStringType(value: unknown): value is StringType {
+  return value instanceof StringType;
+}
+
+export function isUnionType(value: unknown): value is UnionType {
+  return value instanceof UnionType;
+}
+
+export function resolveNamedType(type: ValueType): ValueType | undefined {
+  if (type.name) {
+    return type;
+  }
+
+  const unwrappedType = unwrapType(type);
+
+  if (unwrappedType) {
+    return resolveNamedType(unwrappedType);
+  }
+}
+
+export function unwrapType(
+  type: ValueType,
+  value?: unknown
+): ValueType | undefined {
+  if (isNonNullableType(type)) {
+    return type.ofType;
+  } else if (isUnionType(type)) {
+    return type.resolveType(value);
+  }
+}
+
+export function resolveWrappedType(
+  type: ValueType,
+  value: unknown
+): ValueType | undefined {
+  const resolvedType = unwrapType(type, value);
+  return resolvedType ? resolveWrappedType(resolvedType, value) : type;
+}
+
 function isValueType(value: unknown): value is ValueType {
   return (
-    value instanceof ArrayType ||
-    value instanceof BooleanType ||
-    value instanceof NonNullableType ||
-    value instanceof NullType ||
-    value instanceof NumberType ||
-    value instanceof ObjectType ||
-    value instanceof StringType ||
-    value instanceof UnionType
+    isArrayType(value) ||
+    isBooleanType(value) ||
+    isNonNullableType(value) ||
+    isNumberType(value) ||
+    isObjectType(value) ||
+    isStringType(value) ||
+    isUnionType(value)
   );
 }
 
@@ -293,22 +358,19 @@ export const schema = {
   boolean(config?: BooleanTypeConfig): BooleanType {
     return new BooleanType(config);
   },
-  null(config?: NullTypeConfig): NullType {
-    return new NullType(config);
+  nonNullable(config: NonNullableTypeConfig | ValueType): NonNullableType {
+    return new NonNullableType(config);
   },
   number(config?: NumberTypeConfig): NumberType {
     return new NumberType(config);
   },
-  nonNullable(config: NonNullableTypeConfig | ValueType): NonNullableType {
-    return new NonNullableType(config);
-  },
   object(config?: ObjectTypeConfig): ObjectType {
     return new ObjectType(config);
   },
-  union(config: UnionTypeConfig | ValueType[]): UnionType {
-    return new UnionType(config);
-  },
   string(config?: StringTypeConfig | string): StringType {
     return new StringType(config);
+  },
+  union(config: UnionTypeConfig | ValueType[]): UnionType {
+    return new UnionType(config);
   },
 };

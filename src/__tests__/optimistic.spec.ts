@@ -122,7 +122,7 @@ describe("Optimistic", () => {
     const Parent = schema.object({ name: "Parent", fields: { child: Child } });
     const cache = new Cache({ types: [Parent] });
     cache.write({ type: "Parent", data: { child: { id: "1", a: "a" } } });
-    cache.optimisticUpdate(() => {
+    cache.addOptimisticUpdate(() => {
       cache.write({ type: "Parent", data: { child: { id: "1", b: "b" } } });
     });
     const { data } = cache.read({
@@ -137,10 +137,10 @@ describe("Optimistic", () => {
     const Parent = schema.object({ name: "Parent", fields: { child: Child } });
     const cache = new Cache({ types: [Parent] });
     cache.write({ type: "Parent", data: { child: { id: "1", a: "a" } } });
-    cache.optimisticUpdate(() => {
+    cache.addOptimisticUpdate(() => {
       cache.write({ type: "Parent", data: { child: { id: "1", b: "b" } } });
     });
-    cache.optimisticUpdate(() => {
+    cache.addOptimisticUpdate(() => {
       cache.write({ type: "Parent", data: { child: { id: "1", c: "c" } } });
     });
     const { data } = cache.read({
@@ -155,7 +155,7 @@ describe("Optimistic", () => {
     const Parent = schema.object({ name: "Parent", fields: { child: Child } });
     const cache = new Cache({ types: [Parent] });
     cache.write({ type: "Parent", data: { child: { id: "1", a: "a" } } });
-    const id = cache.optimisticUpdate(() => {
+    const id = cache.addOptimisticUpdate(() => {
       cache.write({ type: "Parent", data: { child: { id: "1", b: "b" } } });
     });
     cache.removeOptimisticUpdate(id);
@@ -171,7 +171,7 @@ describe("Optimistic", () => {
     const Parent = schema.object({ name: "Parent", fields: { child: Child } });
     const cache = new Cache({ types: [Parent] });
     cache.write({ type: "Parent", data: { child: { id: "1", a: "a" } } });
-    cache.optimisticUpdate(() => {
+    cache.addOptimisticUpdate(() => {
       cache.write({ type: "Parent", data: { child: { id: "1", b: "b" } } });
     });
     cache.write({ type: "Parent", data: { child: { id: "1", c: "c" } } });
@@ -187,7 +187,7 @@ describe("Optimistic", () => {
     const Parent = schema.object({ name: "Parent", fields: { child: Child } });
     const cache = new Cache({ types: [Parent] });
     cache.write({ type: "Parent", data: { child: { id: "1", a: "a" } } });
-    cache.optimisticUpdate(() => {
+    cache.addOptimisticUpdate(() => {
       cache.write({ type: "Parent", data: { child: { id: "1", b: "b" } } });
       cache.delete({ type: "Child", id: "1" });
     });
@@ -203,10 +203,10 @@ describe("Optimistic", () => {
     const Parent = schema.object({ name: "Parent", fields: { child: Child } });
     const cache = new Cache({ types: [Parent] });
     cache.write({ type: "Parent", data: { child: { id: "1", a: "a" } } });
-    cache.optimisticUpdate(() => {
+    cache.addOptimisticUpdate(() => {
       cache.delete({ type: "Child", id: "1" });
     });
-    cache.optimisticUpdate(() => {
+    cache.addOptimisticUpdate(() => {
       const { data } = cache.read({ type: "Child", id: "1" });
       if (data) {
         cache.write({ type: "Parent", data: { child: { id: "1", c: "c" } } });
@@ -224,10 +224,10 @@ describe("Optimistic", () => {
     const Parent = schema.object({ name: "Parent", fields: { child: Child } });
     const cache = new Cache({ types: [Parent] });
     cache.write({ type: "Parent", data: { child: { id: "1", a: "a" } } });
-    const id1 = cache.optimisticUpdate(() => {
+    const id1 = cache.addOptimisticUpdate(() => {
       cache.delete({ type: "Child", id: "1" });
     });
-    const id2 = cache.optimisticUpdate(() => {
+    const id2 = cache.addOptimisticUpdate(() => {
       const { data } = cache.read({ type: "Child", id: "1" });
       if (data) {
         cache.write({ type: "Parent", data: { child: { id: "1", c: "c" } } });
@@ -254,7 +254,7 @@ describe("Optimistic", () => {
     const callback = jest.fn();
     cache.write({ type: "Parent", data: { child: { id: "1", a: "a" } } });
     cache.watch({ type: "Parent", select: cql`{ child { a b c } }`, callback });
-    cache.optimisticUpdate(() => {
+    cache.addOptimisticUpdate(() => {
       cache.write({ type: "Parent", data: { child: { id: "1", b: "b" } } });
       cache.write({ type: "Parent", data: { child: { id: "1", c: "c" } } });
     });
@@ -276,10 +276,10 @@ describe("Optimistic", () => {
     const cache = new Cache({ types: [Parent] });
     const callback = jest.fn();
     cache.write({ type: "Parent", data: { child: { id: "1", a: "a" } } });
-    cache.optimisticUpdate(() => {
+    cache.addOptimisticUpdate(() => {
       cache.write({ type: "Parent", data: { child: { id: "1", b: "b" } } });
     });
-    cache.optimisticUpdate(() => {
+    cache.addOptimisticUpdate(() => {
       cache.write({ type: "Parent", data: { child: { id: "1", c: "c" } } });
     });
     cache.watch({

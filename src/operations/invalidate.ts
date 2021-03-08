@@ -1,10 +1,10 @@
 import type { ValueType } from "../schema/types";
 import type { Cache } from "../Cache";
 import type { SelectorNode } from "../language/ast";
-import { isObjectWithMeta } from "../utils/cache";
+import { identify, isObjectWithMeta } from "../utils/cache";
 import { modify } from "./modify";
 
-export interface InvalidateOptions {
+interface InvalidateOptions {
   id?: unknown;
   optimistic?: boolean;
   select?: SelectorNode;
@@ -20,7 +20,13 @@ export function executeInvalidate(
   options: InvalidateOptions
 ): InvalidateResult {
   const result: InvalidateResult = {};
-  const entity = cache.resolve(options);
+  const entityID = identify(options.type, options.id);
+
+  if (!entityID) {
+    return result;
+  }
+
+  const entity = cache.get(entityID, options.optimistic);
 
   if (!entity) {
     return result;
@@ -41,6 +47,7 @@ export function executeInvalidate(
     onField: (_ctx, parent, field) => {
       if (!field.selectionSet && isObjectWithMeta(parent)) {
         parent.___invalidated[field.name.value] = true;
+        return false;
       }
     },
   });

@@ -119,8 +119,17 @@ schema.boolean(true);
 
 ### Objects
 
+Defining an anonymous object:
+
+```js
+const Post = schema.object();
+```
+
+Defining fields:
+
 ```js
 const Post = schema.object({
+  type: "Post",
   fields: {
     title: schema.nonNullable(schema.string()),
     createdAt: schema.number(),
@@ -128,9 +137,38 @@ const Post = schema.object({
 });
 ```
 
+Defining fields with arguments:
+
+```js
+const Author = schema.object({
+  type: "Author",
+});
+
+const Post = schema.object({
+  type: "Post",
+  fields: {
+    author: {
+      type: Author,
+      arguments: true,
+    },
+  },
+});
+
+cache.write({
+  type: "Post",
+  data: { 'author({"id":1})': { id: "1", name: "Name" } },
+});
+```
+
 ### Arrays
 
 Defining an array:
+
+```js
+const Posts = schema.array();
+```
+
+Defining an array of a specific type:
 
 ```js
 const Posts = schema.array(Post);
@@ -164,14 +202,6 @@ const SearchResults = schema.array({
   name: "SearchResults",
   ofType: schema.union([Post, Comment]),
 });
-```
-
-### Null
-
-Defining null values:
-
-```js
-schema.null();
 ```
 
 ### Non-nullable values
