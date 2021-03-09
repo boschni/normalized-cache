@@ -1,6 +1,6 @@
 {
   "name": "normalized-cache",
-  "version": "0.0.0",
+  "version": "0.0.1",
   "description": "A cache for storing normalized data.",
   "keywords": [
     "cache",
@@ -22,7 +22,7 @@
   ],
   "sideEffects": false,
   "scripts": {
-    "build": "rollup -c && tsc --project tsconfig.types.json",
+    "build": "rm -rf ./dist && rollup -c && tsc --project tsconfig.types.json",
     "test": "npm run test:tsc && npm run test:unit && npm run test:lint",
     "test:tsc": "tsc",
     "test:unit": "jest",

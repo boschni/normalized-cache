@@ -79,6 +79,7 @@ class Cache {
   removeOptimisticUpdate(id: number): void;
   transaction(fn: () => void): void;
   silent(fn: () => void): void;
+  reset(): void;
 }
 
 const schema = {
@@ -159,20 +160,53 @@ const { data } = cache.read({
 Use the star operator to select all fields on a certain level:
 
 ```js
-const selector = cql`{ * comments { text } }`;
+const { data } = cache.read({
+  type: "Post",
+  id: "1",
+  select: cql`{ * comments { text } }`,
+});
 ```
 
 Quotes can be used to specify non-aplhanumeric fields:
 
 ```js
-const selector = cql`{ "field with spaces" { text } }`;
+const { data } = cache.read({
+  type: "Post",
+  id: "1",
+  select: cql`{ "field with spaces" { text } }`,
+});
+```
+
+Fields can also be aliased:
+
+```js
+const { data } = cache.read({
+  type: "Post",
+  id: "1",
+  select: cql`{ myTitle: title } }`,
+});
 ```
 
 ### Computed fields
 
-Computed fields can be used for calculations or mapping id fields to entities.
+Computed fields can be created by defining a field with a `read` function.
 
-They can be created by defining a `read` function on a field:
+Defining a computed field for calculations:
+
+```js
+const Cart = schema.object({
+  name: "Cart",
+  fields: {
+    totalPrice: {
+      read: (cart) => {
+        return cart.lineItems.reduce((total, item) => total + item.price, 0);
+      },
+    },
+  },
+});
+```
+
+Defining a relational field based on another field:
 
 ```js
 const Author = schema.object({

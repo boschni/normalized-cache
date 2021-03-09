@@ -235,8 +235,7 @@ export class Cache {
   addOptimisticUpdate(updateFn: OptimisticUpdateFn): number {
     const id = this._optimisticUpdateID++;
     this._optimisticUpdates.push({ id, updateFn });
-    rebaseOptimisticUpdates(this);
-    invalidateReadResults(this);
+    handleOptimisticUpdatesChange(this);
     return id;
   }
 
@@ -244,14 +243,12 @@ export class Cache {
     this._optimisticUpdates = this._optimisticUpdates.filter(
       (x) => x.id !== id
     );
-    rebaseOptimisticUpdates(this);
-    invalidateReadResults(this);
+    handleOptimisticUpdatesChange(this);
   }
 
   removeOptimisticUpdates(): void {
     this._optimisticUpdates = [];
-    rebaseOptimisticUpdates(this);
-    invalidateReadResults(this);
+    handleOptimisticUpdatesChange(this);
   }
 
   transaction(fn: () => void): void {
@@ -268,6 +265,14 @@ export class Cache {
     this._silent = true;
     fn();
     this._silent = false;
+  }
+
+  reset(): void {
+    this._entities = createRecord();
+    this._optimisticEntities = createRecord();
+    this._readResults = createRecord();
+    this._optimisticUpdates = [];
+    handleUpdatedEntities(this, false);
   }
 }
 
@@ -287,6 +292,11 @@ function shouldWriteOptimistic(
   return typeof optimistic === "boolean"
     ? optimistic
     : cache._optimisticWriteMode;
+}
+
+function handleOptimisticUpdatesChange(cache: Cache) {
+  rebaseOptimisticUpdates(cache);
+  invalidateReadResults(cache);
 }
 
 function handleUpdatedEntities(cache: Cache, optimistic: boolean | undefined) {
