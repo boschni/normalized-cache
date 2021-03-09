@@ -291,4 +291,42 @@ describe("Read", () => {
     });
     expect(data).toEqual({ a: "a", child: { b: { c: "c" } } });
   });
+
+  it("should be able to define a computed field", () => {
+    const Type = schema.object({
+      name: "Type",
+      fields: {
+        computed: {
+          read: (parent) => parent.a,
+        },
+      },
+    });
+    const cache = new Cache({ types: [Type] });
+    cache.write({ type: "Type", data: { a: "a" } });
+    const { data } = cache.read({ type: "Type", select: cql`{ a computed }` });
+    expect(data).toEqual({ a: "a", computed: "a" });
+  });
+
+  it("should be able to return references in computed fields", () => {
+    const Author = schema.object({ name: "Author" });
+    const Post = schema.object({
+      name: "Post",
+      fields: {
+        author: {
+          read: (post, ctx) => {
+            return ctx.toReference({ type: "Author", id: post.authorId });
+          },
+        },
+      },
+    });
+    const cache = new Cache({ types: [Post, Author] });
+    cache.write({ type: "Post", data: { id: "1", authorId: "2" } });
+    cache.write({ type: "Author", data: { id: "2", name: "Name" } });
+    const { data } = cache.read({
+      type: "Post",
+      id: "1",
+      select: cql`{ author { name } }`,
+    });
+    expect(data).toEqual({ author: { name: "Name" } });
+  });
 });

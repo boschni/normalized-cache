@@ -5,21 +5,21 @@ import {
   NodeType,
   SelectionSetNode,
 } from "../language/ast";
-import type { ValueType } from "../schema/types";
+import { isObjectType, ValueType } from "../schema/types";
 import type { EntitiesRecord, PlainObject } from "../types";
 import { replaceEqualDeep } from "../utils/data";
 import { ErrorCode, invariant } from "../utils/invariant";
 
 export function resolveSelectionSet(
   selector: SelectorNode | undefined,
-  type: ValueType
+  type: ValueType | undefined
 ): SelectionSetNode | undefined {
   if (selector && selector.kind === NodeType.FragmentDefinition) {
     invariant(
-      selector.typeCondition.name.value === type.name,
+      !type || selector.typeCondition.name.value === type.name,
       process.env.NODE_ENV === "production"
         ? ErrorCode.SELECTOR_SCHEMA_MISMATCH
-        : `The fragment type "${selector.typeCondition.name.value}" does not match the schema type "${type.name}"`
+        : `The fragment type "${selector.typeCondition.name.value}" does not match the schema type "${type?.name}"`
     );
     return selector.selectionSet;
   }
@@ -47,21 +47,34 @@ export function getSelectionFields(
           }
         }
       } else if (selection.kind === NodeType.Star) {
-        addAllFields(fields, data);
+        addAllFields(fields, type, data);
       } else {
         fields[selection.name.value] = selection;
       }
     }
   } else {
-    addAllFields(fields, data);
+    addAllFields(fields, type, data);
   }
 
   return fields;
 }
 
-function addAllFields(fields: Record<string, FieldNode>, data: PlainObject) {
+function addAllFields(
+  fields: Record<string, FieldNode>,
+  type: ValueType | undefined,
+  data: PlainObject
+) {
   for (const key of Object.keys(data)) {
     if (key !== "___expiresAt" && key !== "___invalidated") {
+      fields[key] = {
+        kind: NodeType.Field,
+        name: { kind: NodeType.Name, value: key },
+      };
+    }
+  }
+  if (isObjectType(type)) {
+    const typeFields = type.getFields();
+    for (const key of Object.keys(typeFields)) {
       fields[key] = {
         kind: NodeType.Field,
         name: { kind: NodeType.Name, value: key },

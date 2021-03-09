@@ -382,10 +382,10 @@ describe("write", () => {
     });
   });
 
-  it("should call user defined merge functions on types", () => {
+  it("should call user defined write functions on types", () => {
     const Child = schema.object({
       name: "Child",
-      merge: (a, b) => ({ ...a, ...b }),
+      write: (a, b) => ({ ...a, ...b }),
     });
     const Parent = schema.object({ name: "Parent", fields: { child: Child } });
     const cache = new Cache({ types: [Parent] });
@@ -396,13 +396,13 @@ describe("write", () => {
     });
   });
 
-  it("should call nested user defined merge functions on types", () => {
+  it("should call nested user defined write functions on types", () => {
     const SubChild = schema.object({
-      merge: (a, b) => ({ ...a, ...b }),
+      write: (incoming, existing) => ({ ...existing, ...incoming }),
     });
     const Child = schema.object({
       name: "Child",
-      merge: (a, b) => ({ ...a, ...b }),
+      write: (incoming, existing) => ({ ...existing, ...incoming }),
       fields: {
         subChild: SubChild,
       },
@@ -425,10 +425,27 @@ describe("write", () => {
     });
   });
 
-  it("should be able to replace an entity with a merge function", () => {
+  it("should call user defined write functions on fields", () => {
     const Child = schema.object({
       name: "Child",
-      merge: (_, b) => b,
+      fields: {
+        a: {
+          write: (incoming) => `In:${incoming}`,
+        },
+      },
+    });
+    const Parent = schema.object({ name: "Parent", fields: { child: Child } });
+    const cache = new Cache({ types: [Parent] });
+    cache.write({ type: "Parent", data: { child: { a: "a" } } });
+    expect(cache._entities).toMatchObject({
+      Parent: { id: "Parent", value: { child: { a: "In:a" } } },
+    });
+  });
+
+  it("should be able to replace an entity with a write function", () => {
+    const Child = schema.object({
+      name: "Child",
+      write: (incoming) => incoming,
     });
     const Parent = schema.object({ name: "Parent", fields: { child: Child } });
     const cache = new Cache({ types: [Parent] });

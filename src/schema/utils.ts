@@ -55,7 +55,10 @@ export function visitTypes(
   if (isObjectType(type)) {
     const fields = type.getFields();
     for (const field of Object.keys(fields)) {
-      visitTypes(fields[field].type, config);
+      const fieldType = fields[field].type;
+      if (fieldType) {
+        visitTypes(fieldType, config);
+      }
     }
   } else if (isArrayType(type)) {
     if (type.ofType) {

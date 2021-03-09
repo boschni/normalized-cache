@@ -1,14 +1,14 @@
 # Normalized Cache
 
-The normalized cache provides the following functionality:
+This normalized cache provides the following functionality:
 
-- Data normalization
-- Data denormalization
-- Data validation
+- Data (de)normalization
 - Data subscriptions
+- Data validation
+- Data invalidation
+- Data expiration
+- Computed fields
 - Optimistic updates
-- Field invalidation
-- Field staleness
 - Garbage collection
 - Around 5 KB gzipped
 
@@ -29,15 +29,10 @@ const Author = schema.object({
   name: "Author",
 });
 
-const Comment = schema.object({
-  name: "Commment",
-});
-
 const Post = schema.object({
   name: "Post",
   fields: {
     author: Author,
-    comments: [Comment],
   },
 });
 
@@ -54,13 +49,17 @@ cache.write({
       id: "2",
       name: "Name",
     },
-    comments: [{ text: "comment" }],
   },
 });
 
 const { data } = cache.read({
   type: "Post",
   id: "1",
+});
+
+const { data } = cache.read({
+  type: "Author",
+  id: "2",
 });
 ```
 
@@ -98,36 +97,6 @@ const schema = {
 Schema types allow you to define entities, relationships and fields.
 
 Learn more about the type system [here](./docs/Schema.md).
-
-## Selectors
-
-Selectors can be used to select specific fields to a certain depth:
-
-```js
-const { data } = cache.read({
-  type: "Post",
-  id: "1",
-  select: cql`{ title comments { text } }`,
-});
-```
-
-When no selector is given, all fields including related entities will be returned.
-
-### Star
-
-Use the star operator to select all fields on a certain level:
-
-```js
-const selector = cql`{ * comments { text } }`;
-```
-
-### Non-alphanumeric fields
-
-Quotes can be used to specify non-aplhanumeric fields:
-
-```js
-const selector = cql`{ "field with spaces" { text } }`;
-```
 
 ## Writing
 
@@ -167,18 +136,58 @@ Reading from the cache can be done with the `read` method.
 When no selector is given, all fields and related entities will be returned:
 
 ```js
-const { data } = cache.read({ type: "Post", id: postID });
-```
-
-### Selecting fields
-
-When a selector is given, only the selected fields will be returned:
-
-```js
 const { data } = cache.read({
   type: "Post",
-  id: postID,
+  id: "1",
+});
+```
+
+### Selectors
+
+Selectors can be used to select specific fields to a certain depth:
+
+```js
+import { cql } from "normalized-cache";
+
+const { data } = cache.read({
+  type: "Post",
+  id: "1",
   select: cql`{ title comments { text } }`,
+});
+```
+
+Use the star operator to select all fields on a certain level:
+
+```js
+const selector = cql`{ * comments { text } }`;
+```
+
+Quotes can be used to specify non-aplhanumeric fields:
+
+```js
+const selector = cql`{ "field with spaces" { text } }`;
+```
+
+### Computed fields
+
+Computed fields can be used for calculations or mapping id fields to entities.
+
+They can be created by defining a `read` function on a field:
+
+```js
+const Author = schema.object({
+  name: "Author",
+});
+
+const Post = schema.object({
+  name: "Post",
+  fields: {
+    author: {
+      read: (post, { toReference }) => {
+        return toReference({ type: "Author", id: post.authorId });
+      },
+    },
+  },
 });
 ```
 
@@ -238,12 +247,12 @@ if (stale) {
 
 Data in the cache can be watched with the `watch` method.
 
-Watching for any change in a specific Post and all related data:
+Watching for any change in a specific post and all related data:
 
 ```js
 const unsubscribe = cache.watch({
   type: "Post",
-  id: postID,
+  id: "1",
   callback: (result, prevResult) => {
     // log
   },
@@ -257,7 +266,7 @@ Watching specific fields:
 ```js
 cache.watch({
   type: "Post",
-  id: postID,
+  id: "1",
   select: cql`{ title }`,
   callback: (result, prevResult) => {
     if (!prevResult.stale && result.stale) {
@@ -266,10 +275,6 @@ cache.watch({
   },
 });
 ```
-
-## Validation
-
-Data validation can be done when writing and/or when reading.
 
 ## Invalidation
 
@@ -280,26 +285,19 @@ When an entity or field is invalidated, all related watchers will be notified.
 Invalidate an entity:
 
 ```js
-cache.invalidate({ type: "Post", id: postID });
-```
-
-Invalidate an entity field:
-
-```js
 cache.invalidate({
   type: "Post",
-  id: postID,
-  select: cql`{ comments }`,
+  id: "1",
 });
 ```
 
-Invalidate all fields found by a selector:
+Invalidate entity fields:
 
 ```js
 cache.invalidate({
   type: "Post",
-  id: postID,
-  select: cql`{ comments { text } }`,
+  id: "1",
+  select: cql`{ comments }`,
 });
 ```
 
@@ -334,13 +332,20 @@ Entities and fields can be deleted with the `delete` method.
 Deleting an entity:
 
 ```js
-cache.delete({ type: "Post", id: postID });
+cache.delete({
+  type: "Post",
+  id: "1",
+});
 ```
 
 Deleting specific fields:
 
 ```js
-cache.delete({ type: "Post", id: postID, select: cql`{ title }` });
+cache.delete({
+  type: "Post",
+  id: "1",
+  select: cql`{ title }`,
+});
 ```
 
 ## Optimistic updates
@@ -385,24 +390,48 @@ async function addComment(postID, text) {
 
 By default entities are shallowly merged and non-entity values are replaced.
 
-This behavior can be customized by defining custom merge functions on entities and fields:
+This behavior can be customized by defining custom write functions on entities and fields.
+
+Replacing entities instead of merging:
 
 ```js
 const Author = schema.object({
   name: "Author",
-  merge(existing, incoming) {
-    return incoming; // Replace author entities instead of merging
+  write: (incoming) => {
+    return incoming;
   },
 });
+```
 
+Merging objects instead of replacing:
+
+```js
 const Post = schema.object({
+  name: "Post",
   fields: {
-    author: Author,
-    content: schema.object({
-      merge(existing, incoming) {
-        return { ...existing, ...incoming }; // Merge value instead of replace
+    content: {
+      type: schema.object(),
+      write: (incoming, existing) => {
+        return { ...existing, ...incoming };
       },
-    }),
+    },
+  },
+});
+```
+
+Transforming values when writing:
+
+```js
+const Post = schema.object({
+  name: "Post",
+  fields: {
+    title: {
+      write: (incoming) => {
+        if (typeof incoming === "string") {
+          return incoming.toUpperCase();
+        }
+      },
+    },
   },
 });
 ```

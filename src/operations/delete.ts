@@ -38,9 +38,9 @@ export function executeDelete(
     entityID: entity.id,
     selector: options.select,
     type: options.type,
-    onEntity: (ctx, entity, selectionSet) => {
+    onEntity: (ctx, visitedEntity, selectionSet) => {
       if (!selectionSet) {
-        ctx.entities[entity.id] = undefined;
+        ctx.entities[visitedEntity.id] = undefined;
         return false;
       }
     },

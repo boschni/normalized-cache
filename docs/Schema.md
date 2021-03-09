@@ -122,14 +122,24 @@ schema.boolean(true);
 Defining an anonymous object:
 
 ```js
-const Post = schema.object();
+schema.object();
 ```
 
-Defining fields:
+Defining a named object:
 
 ```js
 const Post = schema.object({
-  type: "Post",
+  name: "Post",
+});
+```
+
+#### Fields
+
+Defining object fields:
+
+```js
+const Post = schema.object({
+  name: "Post",
   fields: {
     title: schema.nonNullable(schema.string()),
     createdAt: schema.number(),
@@ -137,15 +147,40 @@ const Post = schema.object({
 });
 ```
 
+#### Computed fields
+
+Computed fields can be created by defining a `read` function.
+
+They can be used for calculations or dynamically mapping fields to entities:
+
+```js
+const Author = schema.object({
+  name: "Author",
+});
+
+const Post = schema.object({
+  name: "Post",
+  fields: {
+    author: {
+      read: (post, { toReference }) => {
+        return toReference({ type: "Author", id: post.authorId });
+      },
+    },
+  },
+});
+```
+
+#### Fields with arguments
+
 Defining fields with arguments:
 
 ```js
 const Author = schema.object({
-  type: "Author",
+  name: "Author",
 });
 
 const Post = schema.object({
-  type: "Post",
+  name: "Post",
   fields: {
     author: {
       type: Author,
@@ -156,16 +191,21 @@ const Post = schema.object({
 
 cache.write({
   type: "Post",
-  data: { 'author({"id":1})': { id: "1", name: "Name" } },
+  data: {
+    'author({"id":1})': {
+      id: "1",
+      name: "Name",
+    },
+  },
 });
 ```
 
 ### Arrays
 
-Defining an array:
+Defining an anonymous array:
 
 ```js
-const Posts = schema.array();
+schema.array();
 ```
 
 Defining an array of a specific type:

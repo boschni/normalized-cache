@@ -16,8 +16,10 @@ module.exports = {
   },
   plugins: ["@typescript-eslint", "import"],
   rules: {
+    "@typescript-eslint/no-empty-interface": "off",
     "@typescript-eslint/no-explicit-any": "off",
     "@typescript-eslint/no-non-null-assertion": "off",
+    "@typescript-eslint/no-shadow": "error",
     "import/no-cycle": "error",
   },
 };

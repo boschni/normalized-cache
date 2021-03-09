@@ -1,12 +1,12 @@
 import { resolveNamedType, unwrapType, ValueType } from "../schema/types";
-import type { PlainObjectWithMeta, Ref } from "../types";
+import type { PlainObjectWithMeta, Reference } from "../types";
 import { isObject, stableValueHash } from "./data";
 
-export function createReference(entityID: string): Ref {
+export function createReference(entityID: string): Reference {
   return { ___ref: entityID };
 }
 
-export function isReference(value: unknown): value is Ref {
+export function isReference(value: unknown): value is Reference {
   return Boolean(isObject(value) && value.___ref);
 }
 

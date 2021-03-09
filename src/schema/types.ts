@@ -1,12 +1,13 @@
+import { Reference } from "../types";
 import { isObject } from "../utils/data";
 
 type MaybeThunk<T> = T | (() => T);
 
 type IdFunction = (value: any) => unknown;
 
-export type MergeFunction<TExisting = any, TIncoming = TExisting> = (
-  existing: TExisting | undefined,
-  incoming: TIncoming
+export type WriteFunction<TIncoming = any, TExisting = TIncoming> = (
+  incoming: TIncoming,
+  existing: TExisting | undefined
 ) => TExisting;
 
 export interface NonNullableTypeConfig {
@@ -38,14 +39,14 @@ export class NonNullableType {
 export interface ArrayTypeConfig {
   name?: string;
   ofType?: ValueType;
-  merge?: MergeFunction;
+  write?: WriteFunction;
   id?: IdFunction;
 }
 
 export class ArrayType {
   name?: string;
   ofType?: ValueType;
-  merge?: MergeFunction;
+  write?: WriteFunction;
   id?: IdFunction;
 
   constructor(config?: ArrayTypeConfig | ValueType) {
@@ -54,7 +55,7 @@ export class ArrayType {
     } else if (config) {
       this.name = config.name;
       this.ofType = config.ofType;
-      this.merge = config.merge;
+      this.write = config.write;
       this.id = config.id;
     }
   }
@@ -71,18 +72,32 @@ export interface ObjectTypeConfig {
   >;
   id?: IdFunction;
   isOfType?: (value: any) => boolean;
-  merge?: MergeFunction;
+  write?: WriteFunction;
 }
 
+interface ToReferenceOptions {
+  type: string;
+  id?: unknown;
+  data?: unknown;
+}
+
+export interface ObjectFieldReadContext {
+  toReference: (options: ToReferenceOptions) => Reference | undefined;
+}
+
+export interface ObjectFieldWriteContext extends ObjectFieldReadContext {}
+
 export interface ObjectFieldType {
-  type: ValueType;
+  type?: ValueType;
   arguments?: boolean;
+  read?: (parent: any, ctx: ObjectFieldReadContext) => unknown;
+  write?: WriteFunction;
 }
 
 export class ObjectType {
   name?: string;
   id?: IdFunction;
-  merge?: MergeFunction;
+  write?: WriteFunction;
 
   _fields?: MaybeThunk<
     Record<string, ValueType | ValueType[] | ObjectFieldType>
@@ -92,7 +107,7 @@ export class ObjectType {
 
   constructor(config: ObjectTypeConfig = {}) {
     this.name = config.name;
-    this.merge = config.merge;
+    this.write = config.write;
     this._fields = config.fields;
     this._isOfType = config.isOfType;
     if (config.id) {

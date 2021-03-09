@@ -4,7 +4,7 @@ import {
   ValueType,
   resolveWrappedType,
 } from "../schema/types";
-import type { EntitiesRecord, Entity, Ref, InvalidField } from "../types";
+import type { EntitiesRecord, Entity, Reference, InvalidField } from "../types";
 import {
   createReference,
   isObjectWithMeta,
@@ -100,7 +100,7 @@ function processIncoming(
 ): unknown {
   let entity: Entity | undefined;
   let entityID: string | undefined;
-  let entityRef: Ref | undefined;
+  let entityRef: Reference | undefined;
 
   if (type) {
     if (!ctx.path.length) {
@@ -188,24 +188,29 @@ function processIncoming(
         resultObj.___expiresAt[key] = ctx.expiresAt;
         resultObj.___invalidated[key] = false;
 
-        const fieldType = isObjectType(type)
-          ? type.getfield(key)?.type
-          : undefined;
+        const typeField = isObjectType(type) ? type.getfield(key) : undefined;
+        const existingFieldValue = existingObj && existingObj[key];
 
-        resultObj[key] = processIncoming(
+        let newFieldValue = processIncoming(
           ctx,
-          fieldType,
-          existingObj && existingObj[key],
+          typeField && typeField.type,
+          existingFieldValue,
           incoming[key]
         );
+
+        if (typeField && typeField.write) {
+          newFieldValue = typeField.write(newFieldValue, existingFieldValue);
+        }
+
+        resultObj[key] = newFieldValue;
 
         ctx.incomingParents.pop();
         ctx.path.pop();
       }
     }
 
-    if (isObjectType(type) && type.merge) {
-      resultObj = type.merge(existing, resultObj);
+    if (isObjectType(type) && type.write) {
+      resultObj = type.write(resultObj, existing);
     } else if (entity && isObjectWithMeta(entity.value)) {
       // Entities can be safely merged
       resultObj = {
@@ -248,8 +253,8 @@ function processIncoming(
       ctx.path.pop();
     }
 
-    if (isArrayType(type) && type.merge) {
-      resultArray = type.merge(existing, resultArray);
+    if (isArrayType(type) && type.write) {
+      resultArray = type.write(resultArray, existing);
     }
 
     result = resultArray;

@@ -38,9 +38,9 @@ export function executeInvalidate(
     entityID: entity.id,
     selector: options.select,
     type: options.type,
-    onEntity: (_ctx, entity, selectionSet) => {
+    onEntity: (_ctx, visitedEntity, selectionSet) => {
       if (!selectionSet) {
-        entity.invalidated = true;
+        visitedEntity.invalidated = true;
         return false;
       }
     },

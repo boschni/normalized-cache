@@ -18,7 +18,7 @@ export interface Entity {
   value: unknown;
 }
 
-export interface Ref {
+export interface Reference {
   ___ref: EntityID;
 }
 
