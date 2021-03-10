@@ -1,38 +1,32 @@
-import {
-  isArrayType,
-  isObjectType,
-  resolveWrappedType,
-  ValueType,
-} from "../schema/types";
+import { isArrayType, resolveWrappedType, ValueType } from "../schema/types";
 import type { Cache } from "../Cache";
 import type {
   FieldNode,
   SelectionSetNode,
-  SelectorNode,
+  DocumentNode,
 } from "../language/ast";
 import type { EntitiesRecord, Entity, PlainObject } from "../types";
 import { isReference } from "../utils/cache";
 import { clone, createRecord, hasOwn, isObject } from "../utils/data";
-import {
-  resolveSelectionSet,
-  getSelectionFields,
-  persistEntities,
-} from "./shared";
+import { getSelectionSet, getSelectionFields, updateEntities } from "./shared";
+import { maybeGetfieldType } from "../schema/utils";
 
-interface ModifyConfig {
-  cache: Cache;
-  optimistic?: boolean;
+interface ModifyOptions {
   entityID: string;
-  type: ValueType;
-  selector: SelectorNode | undefined;
+  selector: DocumentNode | undefined;
   onEntity: ModifyContext["onEntity"];
   onField: ModifyContext["onField"];
+}
+
+export interface ModifyResult {
+  updatedEntityIDs?: string[];
 }
 
 interface ModifyContext {
   cache: Cache;
   entities: EntitiesRecord;
   optimistic?: boolean;
+  selector: DocumentNode | undefined;
   path: (string | number)[];
   onEntity: (
     ctx: ModifyContext,
@@ -46,28 +40,43 @@ interface ModifyContext {
   ) => boolean | void;
 }
 
-export function modify(config: ModifyConfig): string[] {
+export function executeModify(
+  cache: Cache,
+  type: ValueType,
+  optimistic: boolean,
+  options: ModifyOptions
+): ModifyResult {
   const ctx: ModifyContext = {
-    cache: config.cache,
+    cache,
     entities: createRecord(),
-    onEntity: config.onEntity,
-    onField: config.onField,
+    onEntity: options.onEntity,
+    onField: options.onField,
+    selector: options.selector,
     path: [],
-    optimistic: config.optimistic,
+    optimistic,
   };
 
-  traverseEntity(ctx, config.entityID, config.type, config.selector);
+  const selectionSet = getSelectionSet(options.selector, type);
 
-  return persistEntities(config.cache, ctx.entities, config.optimistic);
+  traverseEntity(ctx, options.entityID, type, selectionSet);
+
+  const updatedEntityIDs = updateEntities(cache, ctx.entities, optimistic);
+
+  const result: ModifyResult = {};
+
+  if (updatedEntityIDs.length) {
+    result.updatedEntityIDs = updatedEntityIDs;
+  }
+
+  return result;
 }
 
 function traverseEntity(
   ctx: ModifyContext,
   entityID: string,
-  type: ValueType,
-  selector: SelectorNode | undefined
+  type: ValueType | undefined,
+  selectionSet: SelectionSetNode | undefined
 ): void {
-  const selectionSet = resolveSelectionSet(selector, type);
   const entity = ctx.cache.get(entityID, ctx.optimistic);
 
   if (!entity) {
@@ -93,44 +102,40 @@ function traverseValue(
   type: ValueType | undefined,
   data: unknown
 ): void {
-  if (type) {
-    if (isReference(data)) {
-      return traverseEntity(ctx, data.___ref, type, selectionSet);
-    }
-
-    type = resolveWrappedType(type, data);
-
-    if (!type) {
-      return;
-    }
+  if (isReference(data)) {
+    return traverseEntity(ctx, data.___ref, type, selectionSet);
   }
 
-  if (isObject(data)) {
-    const fields = getSelectionFields(selectionSet, type, data);
+  type = type && resolveWrappedType(type, data);
 
-    for (const fieldName of Object.keys(fields)) {
+  if (isObject(data)) {
+    const selectionFields = getSelectionFields(
+      ctx.selector,
+      selectionSet,
+      type,
+      data
+    );
+
+    for (const fieldName of Object.keys(selectionFields)) {
+      const selectionField = selectionFields[fieldName];
+
       if (!hasOwn(data, fieldName)) {
         continue;
       }
 
       ctx.path.push(fieldName);
 
-      if (ctx.onField(ctx, data, fields[fieldName]) === false) {
-        ctx.path.pop();
-        continue;
-      }
+      if (ctx.onField(ctx, data, selectionField) !== false) {
+        if (selectionField.selectionSet) {
+          const objectField = maybeGetfieldType(type, fieldName);
 
-      if (fields[fieldName].selectionSet) {
-        const objectField = isObjectType(type)
-          ? type.getfield(fieldName)
-          : undefined;
-
-        traverseValue(
-          ctx,
-          fields[fieldName].selectionSet,
-          objectField && objectField.type,
-          data[fieldName]
-        );
+          traverseValue(
+            ctx,
+            selectionField.selectionSet,
+            objectField && objectField.type,
+            data[fieldName]
+          );
+        }
       }
 
       ctx.path.pop();

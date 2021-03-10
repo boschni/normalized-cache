@@ -9,20 +9,18 @@ export interface PlainObjectWithMeta {
   [key: string]: unknown;
 }
 
-type EntityID = string;
-
 export interface Entity {
   expiresAt: number;
-  id: EntityID;
+  id: string;
   invalidated: boolean;
   value: unknown;
 }
 
 export interface Reference {
-  ___ref: EntityID;
+  ___ref: string;
 }
 
-export type EntitiesRecord = Record<EntityID, Entity | undefined>;
+export type EntitiesRecord = Record<string, Entity | undefined>;
 
 export interface MissingField {
   path: (string | number)[];

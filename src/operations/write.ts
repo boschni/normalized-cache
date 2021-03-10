@@ -15,16 +15,14 @@ import {
 } from "../utils/cache";
 import { createRecord, isObject, hasOwn } from "../utils/data";
 import type { Cache } from "../Cache";
-import { persistEntities } from "./shared";
-import { isValid } from "../schema/utils";
+import { updateEntities } from "./shared";
+import { isValid, maybeGetfieldType } from "../schema/utils";
 
 interface WriteOptions {
   data: unknown;
   expiresAt?: number;
   id?: unknown;
-  optimistic?: boolean;
   strict?: boolean;
-  type: ValueType;
 }
 
 export interface WriteResult {
@@ -43,21 +41,26 @@ interface WriteContext {
   rootEntityID: string;
 }
 
-export function executeWrite(cache: Cache, options: WriteOptions): WriteResult {
+export function executeWrite(
+  cache: Cache,
+  type: ValueType,
+  optimistic: boolean,
+  options: WriteOptions
+): WriteResult {
   let entityID;
 
   if (options.id !== undefined) {
-    entityID = identifyById(options.type, options.id);
+    entityID = identifyById(type, options.id);
   } else if (options.data !== undefined) {
-    entityID = identifyByData(options.type, options.data);
+    entityID = identifyByData(type, options.data);
   }
 
   // Fallback to the type name
   if (!entityID) {
-    entityID = identifyByType(options.type)!;
+    entityID = identifyByType(type)!;
   }
 
-  const existingEntity = cache.get(entityID, options.optimistic);
+  const existingEntity = cache.get(entityID, optimistic);
 
   const ctx: WriteContext = {
     cache,
@@ -65,18 +68,18 @@ export function executeWrite(cache: Cache, options: WriteOptions): WriteResult {
     expiresAt: typeof options.expiresAt === "number" ? options.expiresAt : -1,
     incomingParents: [],
     invalidFields: [],
-    optimistic: options.optimistic,
+    optimistic,
     path: [],
     rootEntityID: entityID,
   };
 
-  processIncoming(ctx, options.type, existingEntity, options.data);
+  processIncoming(ctx, type, existingEntity, options.data);
 
   let updatedEntityIDs: string[] = [];
 
   // In strict mode only persist when the data is valid
   if (!ctx.invalidFields.length || !options.strict) {
-    updatedEntityIDs = persistEntities(cache, ctx.entities, options.optimistic);
+    updatedEntityIDs = updateEntities(cache, ctx.entities, optimistic);
   }
 
   const result: WriteResult = {};
@@ -188,7 +191,7 @@ function processIncoming(
         resultObj.___expiresAt[key] = ctx.expiresAt;
         resultObj.___invalidated[key] = false;
 
-        const typeField = isObjectType(type) ? type.getfield(key) : undefined;
+        const typeField = maybeGetfieldType(type, key);
         const existingFieldValue = existingObj && existingObj[key];
 
         let newFieldValue = processIncoming(

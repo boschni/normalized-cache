@@ -1,53 +1,84 @@
 import type { Cache } from "../Cache";
 import {
   FieldNode,
-  SelectorNode,
+  DocumentNode,
   NodeType,
   SelectionSetNode,
+  FragmentDefinitionNode,
 } from "../language/ast";
 import { isObjectType, ValueType } from "../schema/types";
 import type { EntitiesRecord, PlainObject } from "../types";
-import { replaceEqualDeep } from "../utils/data";
+import { isMetaKey } from "../utils/cache";
 import { ErrorCode, invariant } from "../utils/invariant";
 
-export function resolveSelectionSet(
-  selector: SelectorNode | undefined,
+export function getSelectionSet(
+  node: DocumentNode | undefined,
   type: ValueType | undefined
 ): SelectionSetNode | undefined {
-  if (selector && selector.kind === NodeType.FragmentDefinition) {
-    invariant(
-      !type || selector.typeCondition.name.value === type.name,
-      process.env.NODE_ENV === "production"
-        ? ErrorCode.SELECTOR_SCHEMA_MISMATCH
-        : `The fragment type "${selector.typeCondition.name.value}" does not match the schema type "${type?.name}"`
-    );
-    return selector.selectionSet;
+  if (node) {
+    const selector = node.definitions[0];
+
+    if (selector.kind === NodeType.FragmentDefinition) {
+      invariant(
+        !type || selector.typeCondition.name.value === type.name,
+        process.env.NODE_ENV === "production"
+          ? ErrorCode.SELECTOR_SCHEMA_MISMATCH
+          : `The fragment type "${selector.typeCondition.name.value}" does not match the schema type "${type?.name}"`
+      );
+      return selector.selectionSet;
+    }
+
+    return selector;
   }
-  return selector;
 }
 
 export function getSelectionFields(
+  document: DocumentNode | undefined,
   selectionSet: SelectionSetNode | undefined,
   type: ValueType | undefined,
-  data: PlainObject
+  data: PlainObject,
+  fields: Record<string, FieldNode> = {}
 ): Record<string, FieldNode> {
-  const fields: Record<string, FieldNode> = {};
-
-  if (selectionSet) {
+  if (document && selectionSet) {
     for (const selection of selectionSet.selections) {
       if (selection.kind === NodeType.InlineFragment) {
         if (
           !selection.typeCondition ||
           (type && type.name === selection.typeCondition.name.value)
         ) {
-          for (const fragSelection of selection.selectionSet.selections) {
-            if (fragSelection.kind === NodeType.Field) {
-              fields[fragSelection.name.value] = fragSelection;
-            }
-          }
+          getSelectionFields(
+            document,
+            selection.selectionSet,
+            type,
+            data,
+            fields
+          );
         }
       } else if (selection.kind === NodeType.Star) {
         addAllFields(fields, type, data);
+      } else if (selection.kind === NodeType.FragmentSpread) {
+        const fragDefinition = document.definitions.find(
+          (def) =>
+            def.kind === NodeType.FragmentDefinition &&
+            def.name.value === selection.name.value
+        ) as FragmentDefinitionNode | undefined;
+
+        invariant(
+          fragDefinition,
+          process.env.NODE_ENV === "production"
+            ? ErrorCode.SELECTOR_SCHEMA_MISMATCH
+            : `Fragment "${selection.name.value}" not found"`
+        );
+
+        if (type && type.name === fragDefinition.typeCondition.name.value) {
+          getSelectionFields(
+            document,
+            fragDefinition.selectionSet,
+            type,
+            data,
+            fields
+          );
+        }
       } else {
         fields[selection.name.value] = selection;
       }
@@ -65,7 +96,7 @@ function addAllFields(
   data: PlainObject
 ) {
   for (const key of Object.keys(data)) {
-    if (key !== "___expiresAt" && key !== "___invalidated") {
+    if (!isMetaKey(key)) {
       fields[key] = {
         kind: NodeType.Field,
         name: { kind: NodeType.Name, value: key },
@@ -83,27 +114,22 @@ function addAllFields(
   }
 }
 
-export function persistEntities(
+export function updateEntities(
   cache: Cache,
   entities: EntitiesRecord,
   optimistic: boolean | undefined
 ): string[] {
   const updatedEntityIDs: string[] = [];
 
-  for (const entityID of Object.keys(entities)) {
-    const existingEntity = cache.get(entityID, optimistic);
-    const entity = replaceEqualDeep(existingEntity, entities[entityID]);
-
-    if (entity !== existingEntity) {
-      updatedEntityIDs.push(entityID);
+  cache.transaction(() => {
+    for (const entityID of Object.keys(entities)) {
+      const existingEntity = cache.get(entityID, optimistic);
+      const updatedEntity = cache.set(entityID, entities[entityID], optimistic);
+      if (updatedEntity !== existingEntity) {
+        updatedEntityIDs.push(entityID);
+      }
     }
-
-    if (optimistic) {
-      cache._optimisticEntities[entityID] = entity;
-    } else {
-      cache._entities[entityID] = entity;
-    }
-  }
+  });
 
   return updatedEntityIDs;
 }

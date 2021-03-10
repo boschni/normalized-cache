@@ -1,5 +1,6 @@
+import type { Cache } from "../Cache";
 import { resolveNamedType, unwrapType, ValueType } from "../schema/types";
-import type { PlainObjectWithMeta, Reference } from "../types";
+import type { Entity, PlainObjectWithMeta, Reference } from "../types";
 import { isObject, stableValueHash } from "./data";
 
 export function createReference(entityID: string): Reference {
@@ -12,6 +13,10 @@ export function isReference(value: unknown): value is Reference {
 
 export function isObjectWithMeta(value: unknown): value is PlainObjectWithMeta {
   return Boolean(isObject(value) && value.___invalidated);
+}
+
+export function isMetaKey(key: string): boolean {
+  return key === "___expiresAt" || key === "___invalidated";
 }
 
 function createEntityID(typeName: string, id: unknown): string {
@@ -48,4 +53,17 @@ export function identifyByType(type: ValueType): string | undefined {
 
 export function identify(type: ValueType, id?: unknown): string | undefined {
   return id === undefined ? identifyByType(type) : identifyById(type, id);
+}
+
+export function resolveEntity(
+  cache: Cache,
+  type: ValueType,
+  id: unknown,
+  optimistic: boolean | undefined
+): Entity | undefined {
+  const entityID = identify(type, id);
+
+  if (entityID) {
+    return cache.get(entityID, optimistic);
+  }
 }

@@ -2,36 +2,34 @@ import type { Cache } from "../Cache";
 import type { Entity, InvalidField, MissingField, PlainObject } from "../types";
 import {
   isArrayType,
-  isObjectType,
   ObjectFieldReadContext,
   resolveWrappedType,
   ValueType,
 } from "../schema/types";
-import { SelectionSetNode, SelectorNode } from "../language/ast";
+import { SelectionSetNode, DocumentNode } from "../language/ast";
 import {
   createReference,
-  identify,
   isObjectWithMeta,
   isReference,
+  resolveEntity,
 } from "../utils/cache";
 import { hasOwn } from "../utils/data";
-import { resolveSelectionSet, getSelectionFields } from "./shared";
-import { isValid } from "../schema/utils";
+import { getSelectionSet, getSelectionFields } from "./shared";
+import { isValid, maybeGetfieldType } from "../schema/utils";
 
 interface ReadOptions {
   id?: unknown;
-  optimistic?: boolean;
-  select?: SelectorNode;
-  type: ValueType;
+  select?: DocumentNode;
 }
 
 export interface ReadResult<T = any> {
   data?: T;
+  entityID?: string;
   expiresAt: number;
   invalidFields?: InvalidField[];
   invalidated: boolean;
   missingFields?: MissingField[];
-  selector?: SelectorNode;
+  selector?: DocumentNode;
   stale: boolean;
 }
 
@@ -48,10 +46,13 @@ interface ReadContext {
   fullEntityResults: Record<string, PlainObject>;
   optimistic?: boolean;
   path: (string | number)[];
+  selector: DocumentNode | undefined;
 }
 
 export function executeRead<T>(
   cache: Cache,
+  type: ValueType,
+  optimistic: boolean,
   options: ReadOptions
 ): ReadResult<T> {
   const result: ReadResult = {
@@ -61,13 +62,7 @@ export function executeRead<T>(
     stale: true,
   };
 
-  const entityID = identify(options.type, options.id);
-
-  if (!entityID) {
-    return result;
-  }
-
-  const entity = cache.get(entityID, options.optimistic);
+  const entity = resolveEntity(cache, type, options.id, optimistic);
 
   if (!entity) {
     return result;
@@ -80,11 +75,15 @@ export function executeRead<T>(
     invalidated: false,
     missingFields: [],
     fullEntityResults: {},
-    optimistic: options.optimistic,
+    optimistic,
+    selector: options.select,
     path: [],
   };
 
-  result.data = traverseEntity(ctx, entity, options.type, options.select);
+  const selectionSet = getSelectionSet(options.select, type);
+
+  result.data = traverseEntity(ctx, entity.id, type, selectionSet);
+  result.entityID = entity.id;
   result.invalidated = ctx.invalidated;
   result.expiresAt = ctx.expiresAt;
 
@@ -105,11 +104,16 @@ export function executeRead<T>(
 
 function traverseEntity(
   ctx: ReadContext,
-  entity: Entity,
+  entityID: string,
   type: ValueType | undefined,
-  selector: SelectorNode | undefined
+  selectionSet: SelectionSetNode | undefined
 ): any {
-  const selectionSet = resolveSelectionSet(selector, type);
+  const entity = ctx.cache.get(entityID, ctx.optimistic);
+
+  if (!entity) {
+    addMissingField(ctx);
+    return;
+  }
 
   if (!selectionSet && ctx.fullEntityResults[entity.id]) {
     return ctx.fullEntityResults[entity.id];
@@ -129,14 +133,7 @@ function traverseValue(
   data: unknown
 ): any {
   if (isReference(data)) {
-    const refEntity = ctx.cache.get(data.___ref, ctx.optimistic);
-
-    if (!refEntity) {
-      addMissingField(ctx);
-      return;
-    }
-
-    return traverseEntity(ctx, refEntity, type, selectionSet);
+    return traverseEntity(ctx, data.___ref, type, selectionSet);
   }
 
   if (type) {
@@ -154,15 +151,22 @@ function traverseValue(
       ctx.fullEntityResults[entity.id] = result;
     }
 
-    const selectionFields = getSelectionFields(selectionSet, type, data);
+    const selectionFields = getSelectionFields(
+      ctx.selector,
+      selectionSet,
+      type,
+      data
+    );
 
-    for (const name of Object.keys(selectionFields)) {
-      ctx.path.push(name);
+    for (const fieldName of Object.keys(selectionFields)) {
+      const selectionField = selectionFields[fieldName];
+
+      ctx.path.push(fieldName);
 
       let fieldValue: unknown;
       let fieldValueFound = false;
 
-      const typeField = isObjectType(type) ? type.getfield(name) : undefined;
+      const typeField = maybeGetfieldType(type, fieldName);
 
       if (typeField && typeField.read) {
         const fieldReadCtx: ObjectFieldReadContext = {
@@ -173,17 +177,18 @@ function traverseValue(
         };
         fieldValue = typeField.read(data, fieldReadCtx);
         fieldValueFound = true;
-      } else if (hasOwn(data, name)) {
-        fieldValue = data[name];
+      } else if (hasOwn(data, fieldName)) {
+        fieldValue = data[fieldName];
         fieldValueFound = true;
       }
 
       if (fieldValueFound) {
-        checkExpiresAt(ctx, data.___expiresAt[name]);
-        checkInvalidated(ctx, data.___invalidated[name]);
+        checkExpiresAt(ctx, data.___expiresAt[fieldName]);
+        checkInvalidated(ctx, data.___invalidated[fieldName]);
 
-        const selectionField = selectionFields[name];
-        const alias = selectionField.alias ? selectionField.alias.value : name;
+        const alias = selectionField.alias
+          ? selectionField.alias.value
+          : fieldName;
 
         result[alias] = traverseValue(
           ctx,

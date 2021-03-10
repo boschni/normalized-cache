@@ -8,47 +8,6 @@ The `cql` language and `schema` builders are optional features which both return
 
 Other packages can create their own languages and translate parts of it to an AST for querying the cache.
 
-## Ideas
-
-### Computed fields
-
-Computed fields can be defined with a `read` function.
-
-This function can optionally accept arguments:
-
-```js
-const Post = schema.object({
-  name: "Post",
-  fields: {
-    image: {
-      read(post, args) {
-        return post.image.replace("{size}", args.size);
-      },
-    },
-  },
-});
-
-const selector = customql`{ image(size: "m") }`;
-```
-
-### Field directives
-
-Field directives can be used to apply certain behaviors:
-
-```js
-const cache = new Cache({
-  directives: {
-    upper: {
-      read(value) {
-        return typeof value === "string" ? value.toUpperCase() : value;
-      },
-    },
-  },
-});
-
-const selector = customcql`{ title @upper }`;
-```
-
 ## GraphQL support
 
 It is possible to use the cache with GraphQL, but some additional work

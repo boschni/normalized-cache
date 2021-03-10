@@ -3,20 +3,29 @@ import {
   isNonNullableType,
   isObjectType,
   isUnionType,
+  ObjectFieldType,
   ValueType,
 } from "./types";
 import { createRecord } from "../utils/data";
 
 export function isValid(type: ValueType | undefined, value: unknown): boolean {
-  if (!type) {
-    return true;
-  }
-
-  if (!isNonNullableType(type) && (value === undefined || value === null)) {
+  if (
+    !type ||
+    ((value === undefined || value === null) && !isNonNullableType(type))
+  ) {
     return true;
   }
 
   return type.isOfType(value);
+}
+
+export function maybeGetfieldType(
+  type: ValueType | undefined,
+  fieldName: string
+): ObjectFieldType | undefined {
+  if (isObjectType(type)) {
+    return type.getfield(fieldName);
+  }
 }
 
 export function getReferencedTypes(

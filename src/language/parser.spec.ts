@@ -1,31 +1,45 @@
-import { SelectionSetNode } from "./ast";
+import { DocumentNode } from "./ast";
 import { parse } from "./parser";
 
 describe("language.parse", () => {
   it("should be able to parse no fields", () => {
-    const ast = parse("{}");
+    const src = "{}";
+    const ast = parse(src);
 
-    const result: SelectionSetNode = {
-      kind: "SelectionSet",
-      selections: [],
+    const result: DocumentNode = {
+      kind: "Document",
+      src,
+      definitions: [
+        {
+          kind: "SelectionSet",
+          selections: [],
+        },
+      ],
     };
 
     expect(ast).toEqual(result);
   });
 
   it("should be able to parse quoted field", () => {
-    const ast = parse('{ "fiel d" field }');
+    const src = '{ "fiel d" field }';
+    const ast = parse(src);
 
-    const result: SelectionSetNode = {
-      kind: "SelectionSet",
-      selections: [
+    const result: DocumentNode = {
+      kind: "Document",
+      src,
+      definitions: [
         {
-          kind: "Field",
-          name: { kind: "Name", value: "fiel d" },
-        },
-        {
-          kind: "Field",
-          name: { kind: "Name", value: "field" },
+          kind: "SelectionSet",
+          selections: [
+            {
+              kind: "Field",
+              name: { kind: "Name", value: "fiel d" },
+            },
+            {
+              kind: "Field",
+              name: { kind: "Name", value: "field" },
+            },
+          ],
         },
       ],
     };
@@ -34,14 +48,21 @@ describe("language.parse", () => {
   });
 
   it("should be able to parse one field", () => {
-    const ast = parse("{ field }");
+    const src = "{ field }";
+    const ast = parse(src);
 
-    const result: SelectionSetNode = {
-      kind: "SelectionSet",
-      selections: [
+    const result: DocumentNode = {
+      kind: "Document",
+      src,
+      definitions: [
         {
-          kind: "Field",
-          name: { kind: "Name", value: "field" },
+          kind: "SelectionSet",
+          selections: [
+            {
+              kind: "Field",
+              name: { kind: "Name", value: "field" },
+            },
+          ],
         },
       ],
     };
@@ -50,13 +71,20 @@ describe("language.parse", () => {
   });
 
   it("should be able to parse stars", () => {
-    const ast = parse("{ * }");
+    const src = "{ * }";
+    const ast = parse(src);
 
-    const result: SelectionSetNode = {
-      kind: "SelectionSet",
-      selections: [
+    const result: DocumentNode = {
+      kind: "Document",
+      src,
+      definitions: [
         {
-          kind: "Star",
+          kind: "SelectionSet",
+          selections: [
+            {
+              kind: "Star",
+            },
+          ],
         },
       ],
     };
@@ -65,18 +93,25 @@ describe("language.parse", () => {
   });
 
   it("should be able to parse multiple fields", () => {
-    const ast = parse("{ field1 field2 }");
+    const src = "{ field1 field2 }";
+    const ast = parse(src);
 
-    const result: SelectionSetNode = {
-      kind: "SelectionSet",
-      selections: [
+    const result: DocumentNode = {
+      kind: "Document",
+      src,
+      definitions: [
         {
-          kind: "Field",
-          name: { kind: "Name", value: "field1" },
-        },
-        {
-          kind: "Field",
-          name: { kind: "Name", value: "field2" },
+          kind: "SelectionSet",
+          selections: [
+            {
+              kind: "Field",
+              name: { kind: "Name", value: "field1" },
+            },
+            {
+              kind: "Field",
+              name: { kind: "Name", value: "field2" },
+            },
+          ],
         },
       ],
     };
@@ -85,34 +120,39 @@ describe("language.parse", () => {
   });
 
   it("should be able to parse nested fields", () => {
-    const ast = parse(
-      " {field1 { nested1a nested1b }field2 {nested2a nested2b }}"
-    );
+    const src = " {field1 { nested1a nested1b }field2 {nested2a nested2b }}";
+    const ast = parse(src);
 
-    const result: SelectionSetNode = {
-      kind: "SelectionSet",
-      selections: [
+    const result: DocumentNode = {
+      kind: "Document",
+      src,
+      definitions: [
         {
-          kind: "Field",
-          name: { kind: "Name", value: "field1" },
-          selectionSet: {
-            kind: "SelectionSet",
-            selections: [
-              { kind: "Field", name: { kind: "Name", value: "nested1a" } },
-              { kind: "Field", name: { kind: "Name", value: "nested1b" } },
-            ],
-          },
-        },
-        {
-          kind: "Field",
-          name: { kind: "Name", value: "field2" },
-          selectionSet: {
-            kind: "SelectionSet",
-            selections: [
-              { kind: "Field", name: { kind: "Name", value: "nested2a" } },
-              { kind: "Field", name: { kind: "Name", value: "nested2b" } },
-            ],
-          },
+          kind: "SelectionSet",
+          selections: [
+            {
+              kind: "Field",
+              name: { kind: "Name", value: "field1" },
+              selectionSet: {
+                kind: "SelectionSet",
+                selections: [
+                  { kind: "Field", name: { kind: "Name", value: "nested1a" } },
+                  { kind: "Field", name: { kind: "Name", value: "nested1b" } },
+                ],
+              },
+            },
+            {
+              kind: "Field",
+              name: { kind: "Name", value: "field2" },
+              selectionSet: {
+                kind: "SelectionSet",
+                selections: [
+                  { kind: "Field", name: { kind: "Name", value: "nested2a" } },
+                  { kind: "Field", name: { kind: "Name", value: "nested2b" } },
+                ],
+              },
+            },
+          ],
         },
       ],
     };
@@ -121,24 +161,31 @@ describe("language.parse", () => {
   });
 
   it("should be able to parse field aliases", () => {
-    const ast = parse("{ alias1: field1 alias2: field2 field3 }");
+    const src = "{ alias1: field1 alias2: field2 field3 }";
+    const ast = parse(src);
 
-    const result: SelectionSetNode = {
-      kind: "SelectionSet",
-      selections: [
+    const result: DocumentNode = {
+      kind: "Document",
+      src,
+      definitions: [
         {
-          kind: "Field",
-          alias: { kind: "Name", value: "alias1" },
-          name: { kind: "Name", value: "field1" },
-        },
-        {
-          kind: "Field",
-          alias: { kind: "Name", value: "alias2" },
-          name: { kind: "Name", value: "field2" },
-        },
-        {
-          kind: "Field",
-          name: { kind: "Name", value: "field3" },
+          kind: "SelectionSet",
+          selections: [
+            {
+              kind: "Field",
+              alias: { kind: "Name", value: "alias1" },
+              name: { kind: "Name", value: "field1" },
+            },
+            {
+              kind: "Field",
+              alias: { kind: "Name", value: "alias2" },
+              name: { kind: "Name", value: "field2" },
+            },
+            {
+              kind: "Field",
+              name: { kind: "Name", value: "field3" },
+            },
+          ],
         },
       ],
     };
@@ -147,7 +194,7 @@ describe("language.parse", () => {
   });
 
   it("should be able to parse inline fragments", () => {
-    const ast = parse(`
+    const src = `
       {
         ... on Post {
           title
@@ -156,36 +203,44 @@ describe("language.parse", () => {
           text
         }
       }
-    `);
+    `;
 
-    const result: SelectionSetNode = {
-      kind: "SelectionSet",
-      selections: [
+    const ast = parse(src);
+
+    const result: DocumentNode = {
+      kind: "Document",
+      src,
+      definitions: [
         {
-          kind: "InlineFragment",
-          typeCondition: {
-            kind: "NamedType",
-            name: { kind: "Name", value: "Post" },
-          },
-          selectionSet: {
-            kind: "SelectionSet",
-            selections: [
-              { kind: "Field", name: { kind: "Name", value: "title" } },
-            ],
-          },
-        },
-        {
-          kind: "InlineFragment",
-          typeCondition: {
-            kind: "NamedType",
-            name: { kind: "Name", value: "Comment" },
-          },
-          selectionSet: {
-            kind: "SelectionSet",
-            selections: [
-              { kind: "Field", name: { kind: "Name", value: "text" } },
-            ],
-          },
+          kind: "SelectionSet",
+          selections: [
+            {
+              kind: "InlineFragment",
+              typeCondition: {
+                kind: "NamedType",
+                name: { kind: "Name", value: "Post" },
+              },
+              selectionSet: {
+                kind: "SelectionSet",
+                selections: [
+                  { kind: "Field", name: { kind: "Name", value: "title" } },
+                ],
+              },
+            },
+            {
+              kind: "InlineFragment",
+              typeCondition: {
+                kind: "NamedType",
+                name: { kind: "Name", value: "Comment" },
+              },
+              selectionSet: {
+                kind: "SelectionSet",
+                selections: [
+                  { kind: "Field", name: { kind: "Name", value: "text" } },
+                ],
+              },
+            },
+          ],
         },
       ],
     };

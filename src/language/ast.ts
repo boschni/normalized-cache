@@ -1,12 +1,22 @@
 export const NodeType = {
+  DocumentNode: "Document",
   Field: "Field",
   FragmentDefinition: "FragmentDefinition",
+  FragmentSpread: "FragmentSpread",
   InlineFragment: "InlineFragment",
   Name: "Name",
   NamedType: "NamedType",
   SelectionSet: "SelectionSet",
   Star: "Star",
 } as const;
+
+export interface DocumentNode {
+  kind: "Document";
+  definitions: DefinitionNode[];
+  src?: string;
+}
+
+export type DefinitionNode = FragmentDefinitionNode | SelectionSetNode;
 
 export interface FragmentDefinitionNode {
   kind: "FragmentDefinition";
@@ -15,12 +25,21 @@ export interface FragmentDefinitionNode {
   selectionSet: SelectionSetNode;
 }
 
+export interface FragmentSpreadNode {
+  kind: "FragmentSpread";
+  name: NameNode;
+}
+
 export interface SelectionSetNode {
   kind: "SelectionSet";
   selections: SelectionNode[];
 }
 
-export type SelectionNode = FieldNode | InlineFragmentNode | StarNode;
+export type SelectionNode =
+  | FieldNode
+  | FragmentSpreadNode
+  | InlineFragmentNode
+  | StarNode;
 
 export interface StarNode {
   kind: "Star";
@@ -48,5 +67,3 @@ export interface InlineFragmentNode {
   typeCondition?: NamedTypeNode;
   selectionSet: SelectionSetNode;
 }
-
-export type SelectorNode = FragmentDefinitionNode | SelectionSetNode;

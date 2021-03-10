@@ -159,6 +159,19 @@ describe("Read", () => {
     expect(data).toEqual({});
   });
 
+  it("should be able to spread fragments", () => {
+    const ChildFrag = cql`fragment ChildFrag on Child { b }`;
+    const Child = schema.object({ name: "Child" });
+    const Parent = schema.object({ name: "Parent", fields: { child: Child } });
+    const cache = new Cache({ types: [Parent] });
+    cache.write({ type: "Parent", data: { child: { a: "a", b: "b" } } });
+    const { data } = cache.read({
+      type: "Parent",
+      select: cql`{ child { ...ChildFrag } } ${ChildFrag}`,
+    });
+    expect(data).toEqual({ child: { b: "b" } });
+  });
+
   it("should be able to read specific fields from unions", () => {
     const Type1 = schema.object({
       name: "Type1",

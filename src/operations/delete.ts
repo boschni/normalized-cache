@@ -1,14 +1,12 @@
 import type { ValueType } from "../schema/types";
 import type { Cache } from "../Cache";
-import type { SelectorNode } from "../language/ast";
-import { modify } from "./modify";
-import { identify } from "../utils/cache";
+import type { DocumentNode } from "../language/ast";
+import { executeModify } from "./modify";
+import { resolveEntity } from "../utils/cache";
 
 interface DeleteOptions {
   id?: unknown;
-  optimistic?: boolean;
-  select?: SelectorNode;
-  type: ValueType;
+  select?: DocumentNode;
 }
 
 export interface DeleteResult {
@@ -17,27 +15,19 @@ export interface DeleteResult {
 
 export function executeDelete(
   cache: Cache,
+  type: ValueType,
+  optimistic: boolean,
   options: DeleteOptions
 ): DeleteResult {
-  const result: DeleteResult = {};
-  const entityID = identify(options.type, options.id);
-
-  if (!entityID) {
-    return result;
-  }
-
-  const entity = cache.get(entityID, options.optimistic);
+  const entity = resolveEntity(cache, type, options.id, optimistic);
 
   if (!entity) {
-    return result;
+    return {};
   }
 
-  const updatedEntityIDs = modify({
-    cache,
-    optimistic: options.optimistic,
+  return executeModify(cache, type, optimistic, {
     entityID: entity.id,
     selector: options.select,
-    type: options.type,
     onEntity: (ctx, visitedEntity, selectionSet) => {
       if (!selectionSet) {
         ctx.entities[visitedEntity.id] = undefined;
@@ -51,10 +41,4 @@ export function executeDelete(
       }
     },
   });
-
-  if (updatedEntityIDs.length) {
-    result.updatedEntityIDs = updatedEntityIDs;
-  }
-
-  return result;
 }

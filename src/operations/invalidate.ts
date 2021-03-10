@@ -1,14 +1,12 @@
 import type { ValueType } from "../schema/types";
 import type { Cache } from "../Cache";
-import type { SelectorNode } from "../language/ast";
-import { identify, isObjectWithMeta } from "../utils/cache";
-import { modify } from "./modify";
+import type { DocumentNode } from "../language/ast";
+import { isObjectWithMeta, resolveEntity } from "../utils/cache";
+import { executeModify } from "./modify";
 
 interface InvalidateOptions {
   id?: unknown;
-  optimistic?: boolean;
-  select?: SelectorNode;
-  type: ValueType;
+  select?: DocumentNode;
 }
 
 export interface InvalidateResult {
@@ -17,27 +15,19 @@ export interface InvalidateResult {
 
 export function executeInvalidate(
   cache: Cache,
+  type: ValueType,
+  optimistic: boolean,
   options: InvalidateOptions
 ): InvalidateResult {
-  const result: InvalidateResult = {};
-  const entityID = identify(options.type, options.id);
-
-  if (!entityID) {
-    return result;
-  }
-
-  const entity = cache.get(entityID, options.optimistic);
+  const entity = resolveEntity(cache, type, options.id, optimistic);
 
   if (!entity) {
-    return result;
+    return {};
   }
 
-  const updatedEntityIDs = modify({
-    cache,
-    optimistic: options.optimistic,
+  return executeModify(cache, type, optimistic, {
     entityID: entity.id,
     selector: options.select,
-    type: options.type,
     onEntity: (_ctx, visitedEntity, selectionSet) => {
       if (!selectionSet) {
         visitedEntity.invalidated = true;
@@ -51,10 +41,4 @@ export function executeInvalidate(
       }
     },
   });
-
-  if (updatedEntityIDs.length) {
-    result.updatedEntityIDs = updatedEntityIDs;
-  }
-
-  return result;
 }

@@ -48,6 +48,7 @@ describe("Watch", () => {
 
     const prevResult: ReadResult = {
       data: { b: "b" },
+      entityID: "Type",
       invalidated: false,
       expiresAt: -1,
       selector: expect.anything(),
@@ -56,6 +57,7 @@ describe("Watch", () => {
 
     const newResult: ReadResult = {
       data: { b: "bb" },
+      entityID: "Type",
       invalidated: false,
       expiresAt: -1,
       selector: expect.anything(),

@@ -1,12 +1,13 @@
 import { ErrorCode, invariant } from "../utils/invariant";
 import {
+  DocumentNode,
   FieldNode,
   FragmentDefinitionNode,
+  FragmentSpreadNode,
   InlineFragmentNode,
   NameNode,
   NodeType,
   SelectionSetNode,
-  SelectorNode,
   StarNode,
 } from "./ast";
 
@@ -132,20 +133,20 @@ const optionalWhitespace = optional(whitespace);
 
 const name = map(
   regex(/^[a-zA-Z0-9_]+/),
-  (result): NameNode => ({ kind: "Name", value: result })
+  (result): NameNode => ({ kind: NodeType.Name, value: result })
 );
 
 const quotedName = map(
   regex(/^"((?:\\.|.)*?)"/),
   (result): NameNode => ({
-    kind: "Name",
+    kind: NodeType.Name,
     value: result.substr(1, result.length - 2),
   })
 );
 
 const fieldName = choice([name, quotedName]);
 
-const star = map(str("*"), (): StarNode => ({ kind: "Star" }));
+const star = map(str("*"), (): StarNode => ({ kind: NodeType.Star }));
 
 const selectionSet = recursive(() =>
   map(
@@ -172,6 +173,14 @@ const field = map(
     alias: result[0],
     name: result[2],
     selectionSet: result[4],
+  })
+);
+
+const fragmentSpread = map(
+  sequence([str("..."), name]),
+  (result): FragmentSpreadNode => ({
+    kind: NodeType.FragmentSpread,
+    name: result[1],
   })
 );
 
@@ -217,17 +226,28 @@ const fragment = map(
 );
 
 const selection = map(
-  sequence([optionalWhitespace, choice([star, field, inlineFragment])]),
+  sequence([
+    optionalWhitespace,
+    choice([star, field, inlineFragment, fragmentSpread]),
+  ]),
   (result) => result[1]
 );
 
-const selector = map(
+const definition = map(
   sequence([optionalWhitespace, choice([selectionSet, fragment])]),
   (result) => result[1]
 );
 
-export const parse = (src: string): SelectorNode => {
-  const state = selector({ pos: 0, src });
+const document = map(
+  many(definition),
+  (result): DocumentNode => ({
+    kind: NodeType.DocumentNode,
+    definitions: result,
+  })
+);
+
+export const parse = (src: string): DocumentNode => {
+  const state = document({ pos: 0, src });
 
   invariant(
     !state.error,
@@ -236,5 +256,7 @@ export const parse = (src: string): SelectorNode => {
       : `Unable to parse the selector ${src}`
   );
 
-  return state.result;
+  const documentNode = state.result;
+  documentNode.src = src;
+  return documentNode;
 };

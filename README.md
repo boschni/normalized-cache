@@ -10,7 +10,8 @@ This normalized cache provides the following functionality:
 - Computed fields
 - Optimistic updates
 - Garbage collection
-- Around 5 KB gzipped
+
+The library is around 5 KB gzipped.
 
 ## Setup
 
@@ -75,11 +76,13 @@ class Cache {
   delete(options: DeleteOptions): DeleteResult;
   invalidate(options: InvalidateOptions): InvalidateResult;
   watch(options: WatchOptions): UnsubscribeFn;
+  silent(fn: () => void): void;
+  transaction(fn: () => void): void;
+  reset(): void;
+  gc(): void;
+  retain(entityID: string): DisposeFn;
   addOptimisticUpdate(updateFn: OptimisticUpdateFn): number;
   removeOptimisticUpdate(id: number): void;
-  transaction(fn: () => void): void;
-  silent(fn: () => void): void;
-  reset(): void;
 }
 
 const schema = {
@@ -186,6 +189,8 @@ const { data } = cache.read({
   select: cql`{ myTitle: title } }`,
 });
 ```
+
+Learn more about CQL [here](./docs/CQL.md).
 
 ### Computed fields
 
@@ -490,3 +495,9 @@ cache.silent(() => {
   cache.write({ type: "Post", data: { id: "1", title: "1" } });
 });
 ```
+
+## Garbage collection
+
+The `gc` method can be used to remove all unwatched and unreachable entities from the cache.
+
+Use the `retain` method to prevent an entity from being removed.

@@ -8,7 +8,7 @@ describe("set", () => {
     const read1 = cache.read({ type: "Type" });
     const entity = cache.get("Type");
     if (entity) {
-      cache.set({ ...entity, invalidated: true });
+      cache.set(entity.id, { ...entity, invalidated: true });
     }
     const read2 = cache.read({ type: "Type" });
     expect(read1.stale).toBe(false);

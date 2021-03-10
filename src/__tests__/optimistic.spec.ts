@@ -18,11 +18,12 @@ describe("Optimistic", () => {
     expect(data).toEqual({ child: { b: "b" } });
   });
 
-  it("should not return optimistically deleted entities", () => {
+  it.only("should not return optimistically deleted entities", () => {
     const Child = schema.object({ name: "Child" });
     const Parent = schema.object({ name: "Parent", fields: { child: Child } });
     const cache = new Cache({ types: [Parent] });
     cache.write({ type: "Parent", data: { child: { id: "1", a: "a" } } });
+    cache.read({ type: "Parent", select: cql`{ child { a } }` });
     cache.delete({ type: "Parent", optimistic: true });
     const { data: parentResult } = cache.read({
       type: "Parent",
