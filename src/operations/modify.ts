@@ -9,7 +9,7 @@ import type { EntitiesRecord, Entity, PlainObject } from "../types";
 import { isReference } from "../utils/cache";
 import { clone, createRecord, hasOwn, isObject } from "../utils/data";
 import { getSelectionSet, getSelectionFields, updateEntities } from "./shared";
-import { maybeGetfieldType } from "../schema/utils";
+import { maybeGetFieldType } from "../schema/utils";
 
 interface ModifyOptions {
   entityID: string;
@@ -127,7 +127,7 @@ function traverseValue(
 
       if (ctx.onField(ctx, data, selectionField) !== false) {
         if (selectionField.selectionSet) {
-          const objectField = maybeGetfieldType(type, fieldName);
+          const objectField = maybeGetFieldType(type, fieldName);
 
           traverseValue(
             ctx,

@@ -19,12 +19,12 @@ export function isValid(type: ValueType | undefined, value: unknown): boolean {
   return type.isOfType(value);
 }
 
-export function maybeGetfieldType(
+export function maybeGetFieldType(
   type: ValueType | undefined,
   fieldName: string
 ): ObjectFieldType | undefined {
   if (isObjectType(type)) {
-    return type.getfield(fieldName);
+    return type.getField(fieldName);
   }
 }
 

@@ -144,7 +144,7 @@ export class ObjectType {
     return this._resolvedFields;
   }
 
-  getfield(name: string): ObjectFieldType | undefined {
+  getField(name: string): ObjectFieldType | undefined {
     const fields = this.getFields();
 
     if (!fields[name]) {

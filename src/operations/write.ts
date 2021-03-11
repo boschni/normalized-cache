@@ -16,7 +16,7 @@ import {
 import { createRecord, isObject, hasOwn } from "../utils/data";
 import type { Cache } from "../Cache";
 import { updateEntities } from "./shared";
-import { isValid, maybeGetfieldType } from "../schema/utils";
+import { isValid, maybeGetFieldType } from "../schema/utils";
 
 interface WriteOptions {
   data: unknown;
@@ -191,7 +191,7 @@ function processIncoming(
         resultObj.___expiresAt[key] = ctx.expiresAt;
         resultObj.___invalidated[key] = false;
 
-        const typeField = maybeGetfieldType(type, key);
+        const typeField = maybeGetFieldType(type, key);
         const existingFieldValue = existingObj && existingObj[key];
 
         let newFieldValue = processIncoming(

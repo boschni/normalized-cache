@@ -15,7 +15,7 @@ import {
 } from "../utils/cache";
 import { hasOwn } from "../utils/data";
 import { getSelectionSet, getSelectionFields } from "./shared";
-import { isValid, maybeGetfieldType } from "../schema/utils";
+import { isValid, maybeGetFieldType } from "../schema/utils";
 
 interface ReadOptions {
   id?: unknown;
@@ -166,7 +166,7 @@ function traverseValue(
       let fieldValue: unknown;
       let fieldValueFound = false;
 
-      const typeField = maybeGetfieldType(type, fieldName);
+      const typeField = maybeGetFieldType(type, fieldName);
 
       if (typeField && typeField.read) {
         const fieldReadCtx: ObjectFieldReadContext = {
