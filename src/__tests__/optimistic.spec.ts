@@ -156,10 +156,10 @@ describe("Optimistic", () => {
     const Parent = schema.object({ name: "Parent", fields: { child: Child } });
     const cache = new Cache({ types: [Parent] });
     cache.write({ type: "Parent", data: { child: { id: "1", a: "a" } } });
-    const id = cache.addOptimisticUpdate(() => {
+    const { dispose } = cache.addOptimisticUpdate(() => {
       cache.write({ type: "Parent", data: { child: { id: "1", b: "b" } } });
     });
-    cache.removeOptimisticUpdate(id);
+    dispose();
     const { data } = cache.read({
       type: "Parent",
       select: cql`{ child { b } }`,
@@ -225,10 +225,10 @@ describe("Optimistic", () => {
     const Parent = schema.object({ name: "Parent", fields: { child: Child } });
     const cache = new Cache({ types: [Parent] });
     cache.write({ type: "Parent", data: { child: { id: "1", a: "a" } } });
-    const id1 = cache.addOptimisticUpdate(() => {
+    const { id: id1 } = cache.addOptimisticUpdate(() => {
       cache.delete({ type: "Child", id: "1" });
     });
-    const id2 = cache.addOptimisticUpdate(() => {
+    const { id: id2 } = cache.addOptimisticUpdate(() => {
       const { data } = cache.read({ type: "Child", id: "1" });
       if (data) {
         cache.write({ type: "Parent", data: { child: { id: "1", c: "c" } } });

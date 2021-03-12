@@ -75,13 +75,13 @@ class Cache {
   write(options: WriteOptions): WriteResult;
   delete(options: DeleteOptions): DeleteResult;
   invalidate(options: InvalidateOptions): InvalidateResult;
-  watch(options: WatchOptions): UnsubscribeFn;
+  watch(options: WatchOptions): Unsubscribable;
   silent(fn: () => void): void;
   transaction(fn: () => void): void;
   reset(): void;
   gc(): void;
-  retain(entityID: string): DisposeFn;
-  addOptimisticUpdate(updateFn: OptimisticUpdateFn): number;
+  retain(entityID: string): Disposable;
+  addOptimisticUpdate(updateFn: OptimisticUpdateFn): OptimisticUpdateDisposable;
   removeOptimisticUpdate(id: number): void;
 }
 
@@ -289,7 +289,7 @@ Data in the cache can be watched with the `watch` method.
 Watching for any change in a specific post and all related data:
 
 ```js
-const unsubscribe = cache.watch({
+const { unsubscribe } = cache.watch({
   type: "Post",
   id: "1",
   callback: (result, prevResult) => {
@@ -411,7 +411,7 @@ async function addComment(postID, text) {
     });
   }
 
-  const updateID = cache.addOptimisticUpdate(() => {
+  const { dispose } = cache.addOptimisticUpdate(() => {
     const optimisticComment = { id: uuid(), text };
     addCommentToPost(optimisticComment);
   });
@@ -419,7 +419,7 @@ async function addComment(postID, text) {
   const comment = await api.addComment(postID, text);
 
   cache.transaction(() => {
-    cache.removeOptimisticUpdate(updateID);
+    dispose();
     addCommentToPost(comment);
   });
 }

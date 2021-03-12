@@ -31,7 +31,7 @@ describe("Watch", () => {
     const Type = schema.object({ name: "Type" });
     const cache = new Cache({ types: [Type] });
     const callback = jest.fn();
-    const unsubscribe = cache.watch({ type: "Type", callback });
+    const { unsubscribe } = cache.watch({ type: "Type", callback });
     cache.write({ type: "Type", data: { a: "a" } });
     unsubscribe();
     cache.write({ type: "Type", data: { a: "b" } });

@@ -16,6 +16,8 @@ import {
   isMetaKey,
   isReference,
 } from "./utils/cache";
+import { Disposable } from "./utils/Disposable";
+import { Unsubscribable } from "./utils/Unsubscribable";
 
 interface ReadOptions {
   id?: unknown;
@@ -70,7 +72,14 @@ interface CachedReadResult {
 
 type OptimisticUpdateFn = (cache: Cache) => void;
 
-type UnsubscribeFn = () => void;
+class OptimisticUpdateDisposable extends Disposable {
+  id: number;
+
+  constructor(id: number, disposeFn: () => void) {
+    super(disposeFn);
+    this.id = id;
+  }
+}
 
 interface OptimisticUpdate {
   id: number;
@@ -225,24 +234,28 @@ export class Cache {
     return executeInvalidate(this, type, optimistic, options);
   }
 
-  watch<T>(options: WatchOptions<T>): UnsubscribeFn {
+  watch<T>(options: WatchOptions<T>): Unsubscribable {
     const type = ensureType(this, options.type);
     const entityID = identify(type, options.id)!;
     const prevResult = this.read(options);
     const watch: Watch = { entityID, options, prevResult };
     this._watches.push(watch);
-    const dispose = this.retain(entityID);
-    return () => {
-      dispose();
+    const retainDisposable = this.retain(entityID);
+    return new Unsubscribable(() => {
+      retainDisposable.dispose();
       this._watches = this._watches.filter((x) => x !== watch);
-    };
+    });
   }
 
-  addOptimisticUpdate(updateFn: OptimisticUpdateFn): number {
+  addOptimisticUpdate(
+    updateFn: OptimisticUpdateFn
+  ): OptimisticUpdateDisposable {
     const id = this._optimisticUpdateID++;
     this._optimisticUpdates.push({ id, updateFn });
     handleOptimisticUpdatesChange(this);
-    return id;
+    return new OptimisticUpdateDisposable(id, () => {
+      this.removeOptimisticUpdate(id);
+    });
   }
 
   removeOptimisticUpdate(id: number): void {
@@ -290,23 +303,18 @@ export class Cache {
     this._optimisticUpdates = [];
   }
 
-  retain(entityID: string): () => void {
+  retain(entityID: string): Disposable {
     if (!this._entitiesRefCount[entityID]) {
       this._entitiesRefCount[entityID] = 0;
     }
 
     this._entitiesRefCount[entityID]++;
 
-    let disposed = false;
-
-    return () => {
-      if (!disposed) {
-        disposed = true;
-        if (this._entitiesRefCount[entityID] > 0) {
-          this._entitiesRefCount[entityID]--;
-        }
+    return new Disposable(() => {
+      if (this._entitiesRefCount[entityID] > 0) {
+        this._entitiesRefCount[entityID]--;
       }
-    };
+    });
   }
 
   gc(): void {
