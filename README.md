@@ -11,7 +11,7 @@ This normalized cache provides the following functionality:
 - Optimistic updates
 - Garbage collection
 
-The library is around 6 KB gzipped.
+The library is around 6 KB gzipped when using all features.
 
 ## Setup
 
@@ -53,15 +53,33 @@ cache.write({
   },
 });
 
-const { data } = cache.read({
+const result = cache.read({
   type: "Post",
   id: "1",
 });
 
-const { data } = cache.read({
+console.log(result.data);
+
+// {
+//   id: "1",
+//   title: "Title",
+//   author: {
+//     id: "2",
+//     name: "Name",
+//   },
+// }
+
+const result2 = cache.read({
   type: "Author",
   id: "2",
 });
+
+console.log(result2.data);
+
+// {
+//   id: "2",
+//   name: "Name",
+// }
 ```
 
 ## API
@@ -146,7 +164,7 @@ cache.write({
   type: "Author",
   data: {
     id: "2",
-    name: "Author",
+    name: "Name",
   },
 });
 
@@ -173,7 +191,7 @@ console.log(data);
 //   title: "Title",
 //   author: {
 //     id: "2",
-//     name: "Author",
+//     name: "Name",
 //   },
 // }
 ```
@@ -191,7 +209,7 @@ cache.write({
   type: "Author",
   data: {
     id: "2",
-    name: "Author",
+    name: "Name",
   },
 });
 
@@ -217,7 +235,7 @@ console.log(data);
 // {
 //   title: "Title",
 //   author: {
-//     name: "Author",
+//     name: "Name",
 //   },
 // }
 ```
@@ -233,7 +251,7 @@ cache.write({
   type: "Author",
   data: {
     id: "2",
-    name: "Author",
+    name: "Name",
   },
 });
 
