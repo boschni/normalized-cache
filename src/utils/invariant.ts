@@ -5,6 +5,7 @@ export const ErrorCode = {
   INVALID_SELECTOR: 4,
   INVALID_CONST: 5,
   SELECTOR_SCHEMA_MISMATCH: 6,
+  WRITE_CIRCULAR_DATA: 7,
 };
 
 export function invariant(

@@ -15,7 +15,7 @@ import {
 } from "../utils/cache";
 import { hasOwn } from "../utils/data";
 import { getSelectionSet, getSelectionFields } from "./shared";
-import { isValid, maybeGetFieldType } from "../schema/utils";
+import { isValid, maybeGetObjectField } from "../schema/utils";
 
 interface ReadOptions {
   id?: unknown;
@@ -159,23 +159,22 @@ function traverseValue(
     );
 
     for (const fieldName of Object.keys(selectionFields)) {
-      const selectionField = selectionFields[fieldName];
-
       ctx.path.push(fieldName);
+
+      const selectionField = selectionFields[fieldName];
+      const objectField = maybeGetObjectField(type, fieldName);
 
       let fieldValue: unknown;
       let fieldValueFound = false;
 
-      const typeField = maybeGetFieldType(type, fieldName);
-
-      if (typeField && typeField.read) {
+      if (objectField && objectField.read) {
         const fieldReadCtx: ObjectFieldReadContext = {
           toReference: (options) => {
             const entityID = ctx.cache.identify(options);
             return entityID ? createReference(entityID) : undefined;
           },
         };
-        fieldValue = typeField.read(data, fieldReadCtx);
+        fieldValue = objectField.read(data, fieldReadCtx);
         fieldValueFound = true;
       } else if (hasOwn(data, fieldName)) {
         fieldValue = data[fieldName];
@@ -193,7 +192,7 @@ function traverseValue(
         result[alias] = traverseValue(
           ctx,
           selectionField.selectionSet,
-          typeField && typeField.type,
+          objectField && objectField.type,
           undefined,
           fieldValue
         );

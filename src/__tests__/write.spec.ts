@@ -193,7 +193,7 @@ describe("write", () => {
     });
   });
 
-  it("should normalize input with circular references", () => {
+  it("should normalize input with circular references between entities", () => {
     const Child = schema.object({
       name: "Child",
       fields: () => ({ child: Child }),
@@ -210,6 +210,19 @@ describe("write", () => {
         value: { id: "1", child: { ___ref: "Child:1" } },
       },
     });
+  });
+
+  it("should warn when normalizing input with circular references between non-entities", () => {
+    const Parent = schema.object({
+      name: "Parent",
+      fields: { child: schema.object() },
+    });
+    const cache = new Cache({ types: [Parent] });
+    const child = { id: "1" } as any;
+    child.child = child;
+    expect(() => {
+      cache.write({ type: "Parent", data: { child } });
+    }).toThrow();
   });
 
   it("should not normalize nested entities if they do not have an ID", () => {

@@ -204,7 +204,7 @@ const Cart = schema.object({
   fields: {
     totalPrice: {
       read: (cart) => {
-        return cart.lineItems.reduce((total, item) => total + item.price, 0);
+        return cart.items.reduce((total, item) => total + item.price, 0);
       },
     },
   },

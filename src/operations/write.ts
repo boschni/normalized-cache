@@ -16,7 +16,8 @@ import {
 import { createRecord, isObject, hasOwn } from "../utils/data";
 import type { Cache } from "../Cache";
 import { updateEntities } from "./shared";
-import { isValid, maybeGetFieldType } from "../schema/utils";
+import { isValid, maybeGetObjectField } from "../schema/utils";
+import { ErrorCode, invariant } from "../utils/invariant";
 
 interface WriteOptions {
   data: unknown;
@@ -153,9 +154,8 @@ function processIncoming(
   let result = incoming;
 
   if (isObject(incoming)) {
-    // Try handling circular references in the incoming data
-    if (ctx.incomingParents.includes(incoming)) {
-      return entityRef || incoming;
+    if (isCircularEntity(ctx, incoming, entityRef)) {
+      return entityRef;
     }
 
     // Validate fields which are defined in the schema but not present in the incoming data
@@ -191,18 +191,18 @@ function processIncoming(
         resultObj.___expiresAt[key] = ctx.expiresAt;
         resultObj.___invalidated[key] = false;
 
-        const typeField = maybeGetFieldType(type, key);
+        const objectField = maybeGetObjectField(type, key);
         const existingFieldValue = existingObj && existingObj[key];
 
         let newFieldValue = processIncoming(
           ctx,
-          typeField && typeField.type,
+          objectField && objectField.type,
           existingFieldValue,
           incoming[key]
         );
 
-        if (typeField && typeField.write) {
-          newFieldValue = typeField.write(newFieldValue, existingFieldValue);
+        if (objectField && objectField.write) {
+          newFieldValue = objectField.write(newFieldValue, existingFieldValue);
         }
 
         resultObj[key] = newFieldValue;
@@ -232,9 +232,8 @@ function processIncoming(
 
     result = resultObj;
   } else if (Array.isArray(incoming)) {
-    // Try handling circular references in the incoming data
-    if (ctx.incomingParents.includes(incoming)) {
-      return entityRef || incoming;
+    if (isCircularEntity(ctx, incoming, entityRef)) {
+      return entityRef;
     }
 
     let resultArray: unknown[] = [];
@@ -273,4 +272,23 @@ function processIncoming(
 
 function addInvalidField(ctx: WriteContext, value: unknown) {
   ctx.invalidFields.push({ path: [...ctx.path], value });
+}
+
+function isCircularEntity(
+  ctx: WriteContext,
+  incoming: unknown,
+  ref: Reference | undefined
+): boolean {
+  if (ctx.incomingParents.includes(incoming)) {
+    invariant(
+      ref,
+      process.env.NODE_ENV === "production"
+        ? ErrorCode.WRITE_CIRCULAR_DATA
+        : `Cannot write non-entity data with circular references`
+    );
+
+    return true;
+  }
+
+  return false;
 }
