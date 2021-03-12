@@ -1,6 +1,6 @@
 {
   "name": "normalized-cache",
-  "version": "0.0.1",
+  "version": "0.0.3",
   "description": "A cache for storing normalized data.",
   "keywords": [
     "cache",
