@@ -592,4 +592,107 @@ describe("write", () => {
       },
     });
   });
+
+  it("should not return a selector if the entity is not selectable", () => {
+    const Type = schema.string({ name: "Type" });
+    const cache = new Cache({ types: [Type] });
+    const { selector } = cache.write({ type: "Type", data: "a" });
+    expect(selector).toBeUndefined();
+  });
+
+  it("should return a selector matching the input shape", () => {
+    const Type = schema.object({ name: "Type" });
+    const cache = new Cache({ types: [Type] });
+    const data = { a: "a" };
+    const { selector } = cache.write({ type: "Type", data });
+    const result = cache.read({ type: "Type", select: selector });
+    expect(result.data).toEqual(data);
+    expect(result.invalidFields).toBeUndefined();
+    expect(result.missingFields).toBeUndefined();
+  });
+
+  it("should return a selector matching the combined input shape in arrays", () => {
+    const Type = schema.object({ name: "Type" });
+    const cache = new Cache({ types: [Type] });
+    const data = { array: [{ a: "a" }, { b: "b" }] };
+    const { selector } = cache.write({ type: "Type", data });
+    const result = cache.read({ type: "Type", select: selector });
+    expect(result.data).toEqual(data);
+    expect(result.invalidFields).toBeUndefined();
+    expect(result.missingFields).toEqual([
+      { path: ["array", 0, "b"] },
+      { path: ["array", 1, "a"] },
+    ]);
+  });
+
+  it("should return a selector matching the individual input shape in arrays", () => {
+    const A = schema.object({ name: "A", isOfType: (value) => value?.a });
+    const B = schema.object({ name: "B", isOfType: (value) => value?.b });
+    const Type = schema.object({
+      name: "Type",
+      fields: {
+        array: schema.array(schema.union([A, B])),
+      },
+    });
+    const cache = new Cache({ types: [Type] });
+    const data = { array: [{ a: "a" }, { b: "b" }] };
+    const { selector } = cache.write({ type: "Type", data });
+    const result = cache.read({ type: "Type", select: selector });
+    expect(result.data).toEqual(data);
+    expect(result.invalidFields).toBeUndefined();
+    expect(result.missingFields).toBeUndefined();
+  });
+
+  it("should return a selector which only selects the input fields from related entities", () => {
+    const A = schema.object({ name: "A" });
+    const Type = schema.object({
+      name: "Type",
+      fields: {
+        a1: A,
+        a2: A,
+      },
+    });
+    const cache = new Cache({ types: [Type] });
+    cache.write({ type: "A", id: "1", data: { id: "1", aa: "aa" } });
+    const data = { a1: { id: "1", a: "a" }, a2: { id: "2", b: "b" } };
+    const { selector } = cache.write({ type: "Type", data });
+    const result = cache.read({ type: "Type", select: selector });
+    expect(result.data).toEqual(data);
+    expect(result.invalidFields).toBeUndefined();
+    expect(result.missingFields).toBeUndefined();
+  });
+
+  it("should return a selector which only selects the input fields from related entities in arrays", () => {
+    const A = schema.object({
+      name: "A",
+      fields: {
+        id: schema.string(),
+        a: schema.string(),
+        aa: schema.string(),
+        b: schema.string(),
+      },
+    });
+    const Type = schema.object({
+      name: "Type",
+      fields: {
+        array: [A],
+      },
+    });
+    const cache = new Cache({ types: [Type] });
+    cache.write({ type: "A", id: "1", data: { id: "1", aa: "aa" } });
+    const data = {
+      array: [
+        { id: "1", a: "a" },
+        { id: "2", b: "b" },
+      ],
+    };
+    const { selector } = cache.write({ type: "Type", data });
+    const result = cache.read({ type: "Type", select: selector });
+    expect(result.data).toEqual(data);
+    expect(result.invalidFields).toBeUndefined();
+    expect(result.missingFields).toEqual([
+      { path: ["array", 0, "b"] },
+      { path: ["array", 1, "a"] },
+    ]);
+  });
 });

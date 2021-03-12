@@ -241,7 +241,7 @@ const definition = map(
 const document = map(
   many(definition),
   (result): DocumentNode => ({
-    kind: NodeType.DocumentNode,
+    kind: NodeType.Document,
     definitions: result,
   })
 );

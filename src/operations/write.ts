@@ -18,6 +18,19 @@ import type { Cache } from "../Cache";
 import { updateEntities } from "./shared";
 import { isValid, maybeGetObjectField } from "../schema/utils";
 import { ErrorCode, invariant } from "../utils/invariant";
+import {
+  DocumentNode,
+  FieldNode,
+  InlineFragmentNode,
+  NodeType,
+  SelectionSetNode,
+} from "../language/ast";
+import {
+  createDocument,
+  createField,
+  createInlineFragment,
+  createSelectionSet,
+} from "../language/utils";
 
 interface WriteOptions {
   data: unknown;
@@ -29,6 +42,7 @@ interface WriteOptions {
 export interface WriteResult {
   invalidFields?: InvalidField[];
   updatedEntityIDs?: string[];
+  selector?: DocumentNode;
 }
 
 interface WriteContext {
@@ -74,7 +88,9 @@ export function executeWrite(
     rootEntityID: entityID,
   };
 
-  processIncoming(ctx, type, existingEntity, options.data);
+  const selectionSet = createSelectionSet();
+
+  processIncoming(ctx, type, existingEntity, options.data, selectionSet);
 
   let updatedEntityIDs: string[] = [];
 
@@ -93,6 +109,12 @@ export function executeWrite(
     result.invalidFields = ctx.invalidFields;
   }
 
+  if (selectionSet.selections.length) {
+    const document = createDocument();
+    document.definitions = [selectionSet];
+    result.selector = document;
+  }
+
   return result;
 }
 
@@ -100,7 +122,8 @@ function processIncoming(
   ctx: WriteContext,
   type: ValueType | undefined,
   existing: unknown,
-  incoming: unknown
+  incoming: unknown,
+  selectionSet: SelectionSetNode
 ): unknown {
   let entity: Entity | undefined;
   let entityID: string | undefined;
@@ -149,6 +172,12 @@ function processIncoming(
     }
 
     type = resolveWrappedType(type, incoming);
+
+    if (isObjectType(type) && type.name) {
+      const inlineFragment = createInlineFragment(type.name);
+      selectionSet.selections.push(inlineFragment);
+      selectionSet = inlineFragment.selectionSet;
+    }
   }
 
   let result = incoming;
@@ -194,11 +223,14 @@ function processIncoming(
         const objectField = maybeGetObjectField(type, key);
         const existingFieldValue = existingObj && existingObj[key];
 
+        const fieldSelectionSet = createSelectionSet();
+
         let newFieldValue = processIncoming(
           ctx,
           objectField && objectField.type,
           existingFieldValue,
-          incoming[key]
+          incoming[key],
+          fieldSelectionSet
         );
 
         if (objectField && objectField.write) {
@@ -206,6 +238,14 @@ function processIncoming(
         }
 
         resultObj[key] = newFieldValue;
+
+        const fieldNode = createField(key);
+
+        if (fieldSelectionSet.selections.length) {
+          fieldNode.selectionSet = fieldSelectionSet;
+        }
+
+        selectionSet.selections.push(fieldNode);
 
         ctx.incomingParents.pop();
         ctx.path.pop();
@@ -243,14 +283,21 @@ function processIncoming(
     for (let i = 0; i < incoming.length; i++) {
       ctx.path.push(i);
       ctx.incomingParents.push(incoming);
+
+      const fieldSelectionSet = createSelectionSet();
+
       resultArray.push(
         processIncoming(
           ctx,
           ofType,
           existingArray && existingArray[i],
-          incoming[i]
+          incoming[i],
+          fieldSelectionSet
         )
       );
+
+      mergeSelectionSet(selectionSet, fieldSelectionSet);
+
       ctx.incomingParents.pop();
       ctx.path.pop();
     }
@@ -291,4 +338,54 @@ function isCircularEntity(
   }
 
   return false;
+}
+
+function mergeSelectionSet(
+  target: SelectionSetNode,
+  source: SelectionSetNode
+): void {
+  for (const sourceSelection of source.selections) {
+    switch (sourceSelection.kind) {
+      case NodeType.InlineFragment:
+        {
+          const targetFragment = target.selections.find(
+            (targetSelection) =>
+              targetSelection.kind === NodeType.InlineFragment &&
+              targetSelection.typeCondition!.name.value ===
+                sourceSelection.typeCondition!.name.value
+          ) as InlineFragmentNode | undefined;
+
+          if (!targetFragment) {
+            target.selections.push(sourceSelection);
+          } else if (
+            targetFragment.selectionSet &&
+            sourceSelection.selectionSet
+          ) {
+            mergeSelectionSet(
+              targetFragment.selectionSet,
+              sourceSelection.selectionSet
+            );
+          }
+        }
+        break;
+      case NodeType.Field:
+        {
+          const targetfield = target.selections.find(
+            (targetSelection) =>
+              targetSelection.kind === NodeType.Field &&
+              targetSelection.name.value === sourceSelection.name.value
+          ) as FieldNode | undefined;
+
+          if (!targetfield) {
+            target.selections.push(sourceSelection);
+          } else if (targetfield.selectionSet && sourceSelection.selectionSet) {
+            mergeSelectionSet(
+              targetfield.selectionSet,
+              sourceSelection.selectionSet
+            );
+          }
+        }
+        break;
+    }
+  }
 }

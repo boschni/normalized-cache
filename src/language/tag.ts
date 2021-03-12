@@ -14,7 +14,7 @@ export function cql(
 
     if (
       typeof value !== "string" &&
-      value.kind === NodeType.DocumentNode &&
+      value.kind === NodeType.Document &&
       value.src
     ) {
       value = value.src;

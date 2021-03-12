@@ -11,7 +11,7 @@ This normalized cache provides the following functionality:
 - Optimistic updates
 - Garbage collection
 
-The library is around 5 KB gzipped.
+The library is around 6 KB gzipped.
 
 ## Setup
 
@@ -137,60 +137,133 @@ cache.write({
 
 Reading from the cache can be done with the `read` method.
 
-When no selector is given, all fields and related entities will be returned:
+### Without selector
+
+When no selector is given, all data related to the entity will be returned:
 
 ```js
+cache.write({
+  type: "Author",
+  data: {
+    id: "2",
+    name: "Author",
+  },
+});
+
+cache.write({
+  type: "Post",
+  data: {
+    id: "1",
+    title: "Title",
+    author: {
+      id: "2",
+    },
+  },
+});
+
 const { data } = cache.read({
   type: "Post",
   id: "1",
 });
+
+console.log(data);
+
+// {
+//   id: "1",
+//   title: "Title",
+//   author: {
+//     id: "2",
+//     name: "Author",
+//   },
+// }
 ```
 
-### Selectors
+The resulting data can contain circular references when entities refer to each other.
 
-Selectors can be used to select specific fields to a certain depth:
+### With selector
+
+Selectors can be used to select specific fields:
 
 ```js
 import { cql } from "normalized-cache";
 
+cache.write({
+  type: "Author",
+  data: {
+    id: "2",
+    name: "Author",
+  },
+});
+
+cache.write({
+  type: "Post",
+  data: {
+    id: "1",
+    title: "Title",
+    author: {
+      id: "2",
+    },
+  },
+});
+
 const { data } = cache.read({
   type: "Post",
   id: "1",
-  select: cql`{ title comments { text } }`,
+  select: cql`{ title author { name } }`,
 });
+
+console.log(data);
+
+// {
+//   title: "Title",
+//   author: {
+//     name: "Author",
+//   },
+// }
 ```
 
-Use the star operator to select all fields on a certain level:
+Learn more about selectors [here](./docs/CQL.md).
+
+### With write selector
+
+The `write` method also returns a selector that matches the exact shape of the input:
 
 ```js
+cache.write({
+  type: "Author",
+  data: {
+    id: "2",
+    name: "Author",
+  },
+});
+
+const { selector } = cache.write({
+  type: "Post",
+  data: {
+    id: "1",
+    title: "Title",
+    author: {
+      id: "2",
+    },
+  },
+});
+
 const { data } = cache.read({
   type: "Post",
   id: "1",
-  select: cql`{ * comments { text } }`,
+  select: selector,
 });
+
+console.log(data);
+
+// {
+//   id: "1",
+//   title: "Title",
+//   author: {
+//     id: "2",
+//   },
+// }
 ```
-
-Quotes can be used to specify non-aplhanumeric fields:
-
-```js
-const { data } = cache.read({
-  type: "Post",
-  id: "1",
-  select: cql`{ "field with spaces" { text } }`,
-});
-```
-
-Fields can also be aliased:
-
-```js
-const { data } = cache.read({
-  type: "Post",
-  id: "1",
-  select: cql`{ myTitle: title } }`,
-});
-```
-
-Learn more about CQL [here](./docs/CQL.md).
 
 ### Computed fields
 

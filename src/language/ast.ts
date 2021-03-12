@@ -1,5 +1,5 @@
 export const NodeType = {
-  DocumentNode: "Document",
+  Document: "Document",
   Field: "Field",
   FragmentDefinition: "FragmentDefinition",
   FragmentSpread: "FragmentSpread",
