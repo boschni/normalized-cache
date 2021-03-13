@@ -56,7 +56,10 @@ interface IdentifyOptions {
 }
 
 interface WatchOptions<T = any> extends ReadOptions {
-  callback: (result: ReadResult<T>, prevResult?: ReadResult<T>) => void;
+  callback: (
+    result: ReadResult<T> | undefined,
+    prevResult?: ReadResult<T>
+  ) => void;
 }
 
 interface Watch {
@@ -66,7 +69,7 @@ interface Watch {
 }
 
 interface CachedReadResult {
-  result: ReadResult;
+  result: ReadResult | undefined;
   invalidated?: boolean;
 }
 
@@ -193,7 +196,7 @@ export class Cache {
     return updatedEntity;
   }
 
-  read<T>(options: ReadOptions): ReadResult<T> {
+  read<T>(options: ReadOptions): ReadResult<T> | undefined {
     const type = ensureType(this, options.type);
     const optimistic = shouldReadOptimistic(this, options.optimistic);
     const resultID = getResultID(type, options.select, options.id);
@@ -222,13 +225,13 @@ export class Cache {
     return executeWrite(this, type, optimistic, options);
   }
 
-  delete(options: DeleteOptions): DeleteResult {
+  delete(options: DeleteOptions): DeleteResult | undefined {
     const type = ensureType(this, options.type);
     const optimistic = shouldWriteOptimistic(this, options.optimistic);
     return executeDelete(this, type, optimistic, options);
   }
 
-  invalidate(options: InvalidateOptions): InvalidateResult {
+  invalidate(options: InvalidateOptions): InvalidateResult | undefined {
     const type = ensureType(this, options.type);
     const optimistic = shouldWriteOptimistic(this, options.optimistic);
     return executeInvalidate(this, type, optimistic, options);
@@ -343,8 +346,8 @@ export class Cache {
 
     // Remove read results from deleted entities
     for (const resultID of Object.keys(this._readResults)) {
-      const entityID = this._readResults[resultID]!.result.entityID;
-      if (entityID && deletedEntities[entityID]) {
+      const result = this._readResults[resultID]!.result;
+      if (result && deletedEntities[result.entityID]) {
         delete this._readResults[resultID];
       }
     }

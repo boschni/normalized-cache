@@ -18,11 +18,11 @@ export function executeInvalidate(
   type: ValueType,
   optimistic: boolean,
   options: InvalidateOptions
-): InvalidateResult {
+): InvalidateResult | undefined {
   const entity = resolveEntity(cache, type, options.id, optimistic);
 
   if (!entity) {
-    return {};
+    return;
   }
 
   return executeModify(cache, type, optimistic, {

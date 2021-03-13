@@ -80,6 +80,21 @@ console.log(result2.data);
 //   id: "2",
 //   name: "Name",
 // }
+
+const result3 = cache.read({
+  type: "Post",
+  id: "1",
+  select: cql`{ title author { name } }`,
+});
+
+console.log(result3.data);
+
+// {
+//   title: "Title",
+//   author: {
+//     name: "Name",
+//   },
+// }
 ```
 
 ## API
@@ -89,10 +104,10 @@ class Cache {
   get(entityID: string, optimistic?: boolean): Entity | undefined;
   set(entity: Entity, optimistic?: boolean): Entity;
   identify(options: IdentifyOptions): string | undefined;
-  read(options: ReadOptions): ReadResult;
+  read(options: ReadOptions): ReadResult | undefined;
   write(options: WriteOptions): WriteResult;
-  delete(options: DeleteOptions): DeleteResult;
-  invalidate(options: InvalidateOptions): InvalidateResult;
+  delete(options: DeleteOptions): DeleteResult | undefined;
+  invalidate(options: InvalidateOptions): InvalidateResult | undefined;
   watch(options: WatchOptions): Unsubscribable;
   silent(fn: () => void): void;
   transaction(fn: () => void): void;
@@ -179,12 +194,12 @@ cache.write({
   },
 });
 
-const { data } = cache.read({
+const result = cache.read({
   type: "Post",
   id: "1",
 });
 
-console.log(data);
+console.log(result.data);
 
 // {
 //   id: "1",
@@ -224,13 +239,13 @@ cache.write({
   },
 });
 
-const { data } = cache.read({
+const result = cache.read({
   type: "Post",
   id: "1",
   select: cql`{ title author { name } }`,
 });
 
-console.log(data);
+console.log(result.data);
 
 // {
 //   title: "Title",
@@ -266,13 +281,13 @@ const { selector } = cache.write({
   },
 });
 
-const { data } = cache.read({
+const result = cache.read({
   type: "Post",
   id: "1",
   select: selector,
 });
 
-console.log(data);
+console.log(result.data);
 
 // {
 //   id: "1",
@@ -326,15 +341,24 @@ const Post = schema.object({
 Fields that do not match with the schema will be reported in the `invalidFields` array:
 
 ```js
-const LoggedIn = schema.boolean({ name: "LoggedIn" })
+const LoggedIn = schema.boolean({
+  name: "LoggedIn",
+});
 
-const cache = new Cache({ types: [LoggedIn] });
+const cache = new Cache({
+  types: [LoggedIn],
+});
 
-cache.write({ type: "LoggedIn" data: "string" });
+cache.write({
+  type: "LoggedIn",
+  data: "string",
+});
 
-const { invalidFields } = cache.read({ type: "LoggedIn" });
+const result = cache.read({
+  type: "LoggedIn",
+});
 
-if (invalidFields) {
+if (result.invalidFields) {
   console.log("Invalid data");
 }
 ```
@@ -344,13 +368,19 @@ if (invalidFields) {
 Fields that are missing will be reported in the `missingFields` array:
 
 ```js
-const LoggedIn = schema.boolean({ name: "LoggedIn" });
+const LoggedIn = schema.boolean({
+  name: "LoggedIn",
+});
 
-const cache = new Cache({ types: [LoggedIn] });
+const cache = new Cache({
+  types: [LoggedIn],
+});
 
-const { missingFields } = cache.read({ type: "LoggedIn" });
+const result = cache.read({
+  type: "LoggedIn",
+});
 
-if (missingFields) {
+if (result.missingFields) {
   console.log("Missing data");
 }
 ```
@@ -360,15 +390,23 @@ if (missingFields) {
 The `stale` flag indicates if some entity or field has been invalidated or if any `expiresAt` has past:
 
 ```js
-const LoggedIn = schema.boolean({ name: "LoggedIn" });
+const LoggedIn = schema.boolean({
+  name: "LoggedIn",
+});
 
-const cache = new Cache({ types: [LoggedIn] });
+const cache = new Cache({
+  types: [LoggedIn],
+});
 
-cache.write({ type: "LoggedIn" data: true, expiresAt: 0 });
+cache.write({
+  type: "LoggedIn",
+  data: true,
+  expiresAt: 0,
+});
 
-const { stale } = cache.read({ type: "LoggedIn" });
+const result = cache.read({ type: "LoggedIn" });
 
-if (stale) {
+if (result.stale) {
   console.log("Stale data");
 }
 ```
@@ -489,7 +527,7 @@ This means that if new data is written to the cache, the optimistic update will 
 ```js
 async function addComment(postID, text) {
   function addCommentToPost(comment) {
-    const { data } = cache.read({
+    const result = cache.read({
       type: "Post",
       id: postID,
       select: cql`{ comments }`,
@@ -498,19 +536,18 @@ async function addComment(postID, text) {
     cache.write({
       type: "Post",
       id: postID,
-      data: { comments: [...data.comments, comment] },
+      data: { comments: [...result.data.comments, comment] },
     });
   }
 
-  const { dispose } = cache.addOptimisticUpdate(() => {
-    const optimisticComment = { id: uuid(), text };
-    addCommentToPost(optimisticComment);
+  const update = cache.addOptimisticUpdate(() => {
+    addCommentToPost({ id: uuid(), text });
   });
 
   const comment = await api.addComment(postID, text);
 
   cache.transaction(() => {
-    dispose();
+    update.dispose();
     addCommentToPost(comment);
   });
 }

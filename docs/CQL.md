@@ -7,7 +7,7 @@ Selectors can be used to select specific fields to a certain depth:
 ```js
 import { cql } from "normalized-cache";
 
-const { data } = cache.read({
+const result = cache.read({
   type: "Post",
   id: "1",
   select: cql`{ title comments { text } }`,
@@ -19,7 +19,7 @@ const { data } = cache.read({
 Use the star operator to select all fields on a certain level:
 
 ```js
-const { data } = cache.read({
+const result = cache.read({
   type: "Post",
   id: "1",
   select: cql`{ * comments { text } }`,
@@ -31,7 +31,7 @@ const { data } = cache.read({
 Quotes can be used to specify non-aplhanumeric fields:
 
 ```js
-const { data } = cache.read({
+const result = cache.read({
   type: "Post",
   id: "1",
   select: cql`{ "field with spaces" { text } }`,
@@ -43,7 +43,7 @@ const { data } = cache.read({
 Fields can also be aliased:
 
 ```js
-const { data } = cache.read({
+const result = cache.read({
   type: "Post",
   id: "1",
   select: cql`{ myTitle: title } }`,
@@ -76,7 +76,7 @@ const SearchResult = schema.array({
   ofType: schema.union([Author, Post]),
 });
 
-const { data } = cache.read({
+const result = cache.read({
   type: "SearchResult",
   select: cql`{
     ... on Author {
@@ -94,7 +94,7 @@ const { data } = cache.read({
 Fragments can be defined to name a selection of fields:
 
 ```js
-const { data } = cache.read({
+const result = cache.read({
   type: "Post",
   id: "1",
   select: cql`fragment PostOverview on Post { title }`,
@@ -106,7 +106,7 @@ They can also be embedded in other selectors:
 ```js
 const PostOverview = cql`fragment PostOverview on Post { title }`;
 
-const { data } = cache.read({
+const result = cache.read({
   type: "Post",
   id: "1",
   select: cql`{ ...PostOverview } ${PostOverview}`,

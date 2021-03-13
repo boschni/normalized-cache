@@ -6,80 +6,80 @@ describe("write", () => {
     const Type = schema.string({ name: "Type" });
     const cache = new Cache({ types: [Type] });
     cache.write({ type: "Type", data: "a" });
-    const { data } = cache.read({ type: "Type" });
-    expect(data).toBe("a");
+    const result = cache.read({ type: "Type" });
+    expect(result!.data).toBe("a");
   });
 
   it("should be able to write entities with a specific ID", () => {
     const Type = schema.string({ name: "Type" });
     const cache = new Cache({ types: [Type] });
     cache.write({ type: "Type", id: "1", data: "a" });
-    const { data } = cache.read({ type: "Type", id: "1" });
-    expect(data).toBe("a");
+    const result = cache.read({ type: "Type", id: "1" });
+    expect(result!.data).toBe("a");
   });
 
   it("should be able to write entities with an object ID", () => {
     const Type = schema.string({ name: "Type" });
     const cache = new Cache({ types: [Type] });
     cache.write({ type: "Type", id: { page: 1 }, data: "a" });
-    const { data } = cache.read({ type: "Type", id: { page: 1 } });
-    expect(data).toBe("a");
+    const result = cache.read({ type: "Type", id: { page: 1 } });
+    expect(result!.data).toBe("a");
   });
 
   it("should be able to write boolean entites", () => {
     const Type = schema.boolean({ name: "Type" });
     const cache = new Cache({ types: [Type] });
     cache.write({ type: "Type", data: true });
-    const { data } = cache.read({ type: "Type" });
-    expect(data).toBe(true);
+    const result = cache.read({ type: "Type" });
+    expect(result!.data).toBe(true);
   });
 
   it("should be able to write null entities", () => {
     const Type = schema.string({ name: "Type" });
     const cache = new Cache({ types: [Type] });
     cache.write({ type: "Type", data: null });
-    const { data } = cache.read({ type: "Type" });
-    expect(data).toBe(null);
+    const result = cache.read({ type: "Type" });
+    expect(result!.data).toBe(null);
   });
 
   it("should be able to write string entities", () => {
     const Type = schema.string({ name: "Type" });
     const cache = new Cache({ types: [Type] });
     cache.write({ type: "Type", data: "a" });
-    const { data } = cache.read({ type: "Type" });
-    expect(data).toBe("a");
+    const result = cache.read({ type: "Type" });
+    expect(result!.data).toBe("a");
   });
 
   it("should be able to write number entities", () => {
     const Type = schema.number({ name: "Type" });
     const cache = new Cache({ types: [Type] });
     cache.write({ type: "Type", data: 1 });
-    const { data } = cache.read({ type: "Type" });
-    expect(data).toBe(1);
+    const result = cache.read({ type: "Type" });
+    expect(result!.data).toBe(1);
   });
 
   it("should be able to write undefined entities", () => {
     const Type = schema.string({ name: "Type" });
     const cache = new Cache({ types: [Type] });
     cache.write({ type: "Type", data: undefined });
-    const { data } = cache.read({ type: "Type" });
-    expect(data).toBe(undefined);
+    const result = cache.read({ type: "Type" });
+    expect(result!.data).toBe(undefined);
   });
 
   it("should be able to write object entities", () => {
     const Type = schema.object({ name: "Type" });
     const cache = new Cache({ types: [Type] });
     cache.write({ type: "Type", data: {} });
-    const { data } = cache.read({ type: "Type" });
-    expect(data).toEqual({});
+    const result = cache.read({ type: "Type" });
+    expect(result!.data).toEqual({});
   });
 
   it("should be able to write array entities", () => {
     const Type = schema.array({ name: "Type" });
     const cache = new Cache({ types: [Type] });
     cache.write({ type: "Type", data: [] });
-    const { data } = cache.read({ type: "Type" });
-    expect(data).toEqual([]);
+    const result = cache.read({ type: "Type" });
+    expect(result!.data).toEqual([]);
   });
 
   it("should be able to write undefined values", () => {
@@ -89,8 +89,8 @@ describe("write", () => {
     });
     const cache = new Cache({ types: [Type] });
     cache.write({ type: "Type", data: { value: undefined } });
-    const { data } = cache.read({ type: "Type" });
-    expect(data).toEqual({ value: undefined });
+    const result = cache.read({ type: "Type" });
+    expect(result!.data).toEqual({ value: undefined });
   });
 
   it("should be able to write null values", () => {
@@ -100,8 +100,8 @@ describe("write", () => {
     });
     const cache = new Cache({ types: [Type] });
     cache.write({ type: "Type", data: { value: null } });
-    const { data } = cache.read({ type: "Type" });
-    expect(data).toEqual({ value: null });
+    const result = cache.read({ type: "Type" });
+    expect(result!.data).toEqual({ value: null });
   });
 
   it("should be able to write boolean values", () => {
@@ -111,8 +111,8 @@ describe("write", () => {
     });
     const cache = new Cache({ types: [Type] });
     cache.write({ type: "Type", data: { value: false } });
-    const { data } = cache.read({ type: "Type" });
-    expect(data).toEqual({ value: false });
+    const result = cache.read({ type: "Type" });
+    expect(result!.data).toEqual({ value: false });
   });
 
   it("should be able to write number values", () => {
@@ -122,8 +122,8 @@ describe("write", () => {
     });
     const cache = new Cache({ types: [Type] });
     cache.write({ type: "Type", data: { value: 1 } });
-    const { data } = cache.read({ type: "Type" });
-    expect(data).toEqual({ value: 1 });
+    const result = cache.read({ type: "Type" });
+    expect(result!.data).toEqual({ value: 1 });
   });
 
   it("should be able to write string values", () => {
@@ -133,24 +133,24 @@ describe("write", () => {
     });
     const cache = new Cache({ types: [Type] });
     cache.write({ type: "Type", data: { value: "a" } });
-    const { data } = cache.read({ type: "Type" });
-    expect(data).toEqual({ value: "a" });
+    const result = cache.read({ type: "Type" });
+    expect(result!.data).toEqual({ value: "a" });
   });
 
   it("should be able to write object values", () => {
     const Type = schema.object({ name: "Type" });
     const cache = new Cache({ types: [Type] });
     cache.write({ type: "Type", data: { value: { a: "a" } } });
-    const { data } = cache.read({ type: "Type" });
-    expect(data).toEqual({ value: { a: "a" } });
+    const result = cache.read({ type: "Type" });
+    expect(result!.data).toEqual({ value: { a: "a" } });
   });
 
   it("should be able to write array values", () => {
     const Type = schema.object({ name: "Type" });
     const cache = new Cache({ types: [Type] });
     cache.write({ type: "Type", data: { value: [0, 1, 2] } });
-    const { data } = cache.read({ type: "Type" });
-    expect(data).toEqual({ value: [0, 1, 2] });
+    const result = cache.read({ type: "Type" });
+    expect(result!.data).toEqual({ value: [0, 1, 2] });
   });
 
   it("should be able to write references", () => {
@@ -159,11 +159,11 @@ describe("write", () => {
     const cache = new Cache({ types: [Parent] });
     cache.write({ type: "Child", data: { id: "1" } });
     cache.write({ type: "Parent", data: { child: { ___ref: "Child:1" } } });
-    const { data } = cache.read({
+    const result = cache.read({
       type: "Parent",
       select: cql`{ child { id } }`,
     });
-    expect(data).toEqual({ child: { id: "1" } });
+    expect(result!.data).toEqual({ child: { id: "1" } });
   });
 
   it("should normalize nested entities", () => {
@@ -171,8 +171,8 @@ describe("write", () => {
     const Parent = schema.object({ name: "Parent", fields: { child: Child } });
     const cache = new Cache({ types: [Parent] });
     cache.write({ type: "Parent", data: { child: { id: "1" } } });
-    const { data } = cache.read({ type: "Child", id: "1" });
-    expect(data).toEqual({ id: "1" });
+    const result = cache.read({ type: "Child", id: "1" });
+    expect(result!.data).toEqual({ id: "1" });
     expect(cache._entities).toMatchObject({
       Parent: { id: "Parent", value: { child: { ___ref: "Child:1" } } },
       "Child:1": { id: "Child:1", value: { id: "1" } },
@@ -474,10 +474,10 @@ describe("write", () => {
     const Parent = schema.object({ name: "Parent", fields: { child: Child } });
     const cache = new Cache({ types: [Parent] });
     cache.write({ type: "Parent", data: { child: { a: "a" } } });
-    const { data: result1 } = cache.read({ type: "Parent" });
+    const result1 = cache.read({ type: "Parent" });
     cache.write({ type: "Parent", data: { child: { a: "a" } } });
-    const { data: result2 } = cache.read({ type: "Parent" });
-    expect(result1).toBe(result2);
+    const result2 = cache.read({ type: "Parent" });
+    expect(result1!.data).toBe(result2!.data);
   });
 
   it("should be able to write optimistic data", () => {
@@ -527,10 +527,10 @@ describe("write", () => {
     const read1 = cache.read<any[]>({ type: "Parent", select: cql`{ id }` });
     cache.write({
       type: "Parent",
-      data: [...read1.data!, { id: "3", c: "c" }],
+      data: [...read1!.data, { id: "3", c: "c" }],
     });
     const read2 = cache.read({ type: "Parent" });
-    expect(read2.data).toEqual([
+    expect(read2!.data).toEqual([
       { id: "1", a: "a" },
       { id: "2", b: "b" },
       { id: "3", c: "c" },
@@ -606,9 +606,9 @@ describe("write", () => {
     const data = { a: "a" };
     const { selector } = cache.write({ type: "Type", data });
     const result = cache.read({ type: "Type", select: selector });
-    expect(result.data).toEqual(data);
-    expect(result.invalidFields).toBeUndefined();
-    expect(result.missingFields).toBeUndefined();
+    expect(result!.data).toEqual(data);
+    expect(result!.invalidFields).toBeUndefined();
+    expect(result!.missingFields).toBeUndefined();
   });
 
   it("should return a selector matching the combined input shape in arrays", () => {
@@ -617,9 +617,9 @@ describe("write", () => {
     const data = { array: [{ a: "a" }, { b: "b" }] };
     const { selector } = cache.write({ type: "Type", data });
     const result = cache.read({ type: "Type", select: selector });
-    expect(result.data).toEqual(data);
-    expect(result.invalidFields).toBeUndefined();
-    expect(result.missingFields).toEqual([
+    expect(result!.data).toEqual(data);
+    expect(result!.invalidFields).toBeUndefined();
+    expect(result!.missingFields).toEqual([
       { path: ["array", 0, "b"] },
       { path: ["array", 1, "a"] },
     ]);
@@ -638,9 +638,9 @@ describe("write", () => {
     const data = { array: [{ a: "a" }, { b: "b" }] };
     const { selector } = cache.write({ type: "Type", data });
     const result = cache.read({ type: "Type", select: selector });
-    expect(result.data).toEqual(data);
-    expect(result.invalidFields).toBeUndefined();
-    expect(result.missingFields).toBeUndefined();
+    expect(result!.data).toEqual(data);
+    expect(result!.invalidFields).toBeUndefined();
+    expect(result!.missingFields).toBeUndefined();
   });
 
   it("should return a selector which only selects the input fields from related entities", () => {
@@ -657,9 +657,9 @@ describe("write", () => {
     const data = { a1: { id: "1", a: "a" }, a2: { id: "2", b: "b" } };
     const { selector } = cache.write({ type: "Type", data });
     const result = cache.read({ type: "Type", select: selector });
-    expect(result.data).toEqual(data);
-    expect(result.invalidFields).toBeUndefined();
-    expect(result.missingFields).toBeUndefined();
+    expect(result!.data).toEqual(data);
+    expect(result!.invalidFields).toBeUndefined();
+    expect(result!.missingFields).toBeUndefined();
   });
 
   it("should return a selector which only selects the input fields from related entities in arrays", () => {
@@ -688,9 +688,9 @@ describe("write", () => {
     };
     const { selector } = cache.write({ type: "Type", data });
     const result = cache.read({ type: "Type", select: selector });
-    expect(result.data).toEqual(data);
-    expect(result.invalidFields).toBeUndefined();
-    expect(result.missingFields).toEqual([
+    expect(result!.data).toEqual(data);
+    expect(result!.invalidFields).toBeUndefined();
+    expect(result!.missingFields).toEqual([
       { path: ["array", 0, "b"] },
       { path: ["array", 1, "a"] },
     ]);

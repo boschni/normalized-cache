@@ -18,11 +18,11 @@ export function executeDelete(
   type: ValueType,
   optimistic: boolean,
   options: DeleteOptions
-): DeleteResult {
+): DeleteResult | undefined {
   const entity = resolveEntity(cache, type, options.id, optimistic);
 
   if (!entity) {
-    return {};
+    return;
   }
 
   return executeModify(cache, type, optimistic, {

@@ -8,13 +8,8 @@ describe("Watch", () => {
     cache.watch({ type: "Type", callback });
     cache.write({ type: "Type", data: { a: "a" } });
 
-    const prevResult: ReadResult = {
-      invalidated: false,
-      expiresAt: -1,
-      stale: true,
-    };
-
     const newResult: ReadResult = {
+      entityID: "Type",
       data: { a: "a" },
       invalidated: false,
       expiresAt: -1,
@@ -23,7 +18,7 @@ describe("Watch", () => {
 
     expect(callback).toHaveBeenCalledWith(
       expect.objectContaining(newResult),
-      expect.objectContaining(prevResult)
+      undefined
     );
   });
 

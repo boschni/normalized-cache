@@ -6,8 +6,8 @@ describe("GC", () => {
     const cache = new Cache({ types: [Type] });
     cache.write({ type: "Type", data: "a" });
     cache.gc();
-    const { data } = cache.read({ type: "Type" });
-    expect(data).toBeUndefined();
+    const result = cache.read({ type: "Type" });
+    expect(result).toBeUndefined();
   });
 
   it("should remove entities which are referenced in entities which are not retained", () => {
@@ -16,8 +16,8 @@ describe("GC", () => {
     const cache = new Cache({ types: [Parent] });
     cache.write({ type: "Parent", data: { child: { id: "1" } } });
     cache.gc();
-    const { data } = cache.read({ type: "Child", id: "1" });
-    expect(data).toBeUndefined();
+    const result = cache.read({ type: "Child", id: "1" });
+    expect(result).toBeUndefined();
   });
 
   it("should remove unreferenced entities with circular references", () => {
@@ -34,8 +34,8 @@ describe("GC", () => {
     cache.gc();
     const result1 = cache.read({ type: "Parent", id: "1" });
     const result2 = cache.read({ type: "Child", id: "1" });
-    expect(result1.data).toBeUndefined();
-    expect(result2.data).toBeUndefined();
+    expect(result1).toBeUndefined();
+    expect(result2).toBeUndefined();
   });
 
   it("should not remove referenced entities with circular references", () => {
@@ -53,8 +53,8 @@ describe("GC", () => {
     cache.gc();
     const result1 = cache.read({ type: "Parent", id: "1" });
     const result2 = cache.read({ type: "Child", id: "2" });
-    expect(result1.data).toBeDefined();
-    expect(result2.data).toBeDefined();
+    expect(result1).toBeDefined();
+    expect(result2).toBeDefined();
   });
 
   it("should remove entities which are released", () => {
@@ -65,16 +65,16 @@ describe("GC", () => {
     const disposeable2 = cache.retain("Type");
     cache.gc();
     const result1 = cache.read({ type: "Type" });
-    expect(result1.data).toBe("a");
+    expect(result1!.data).toBe("a");
     disposeable.dispose();
     disposeable.dispose();
     cache.gc();
     const result2 = cache.read({ type: "Type" });
-    expect(result2.data).toBe("a");
+    expect(result2!.data).toBe("a");
     disposeable2.dispose();
     cache.gc();
     const result3 = cache.read({ type: "Type" });
-    expect(result3.data).toBeUndefined();
+    expect(result3).toBeUndefined();
   });
 
   it("should not remove entities which are retained", () => {
@@ -83,8 +83,8 @@ describe("GC", () => {
     cache.write({ type: "Type", data: "a" });
     cache.retain("Type");
     cache.gc();
-    const { data } = cache.read({ type: "Type" });
-    expect(data).toBe("a");
+    const result = cache.read({ type: "Type" });
+    expect(result!.data).toBe("a");
   });
 
   it("should not remove entities which are watched", () => {
@@ -93,8 +93,8 @@ describe("GC", () => {
     cache.write({ type: "Type", data: "a" });
     cache.watch({ type: "Type", callback: () => undefined });
     cache.gc();
-    const { data } = cache.read({ type: "Type" });
-    expect(data).toBe("a");
+    const result = cache.read({ type: "Type" });
+    expect(result!.data).toBe("a");
   });
 
   it("should not remove entities which are referenced in entities which are retained", () => {
@@ -104,7 +104,7 @@ describe("GC", () => {
     cache.write({ type: "Parent", data: { child: { id: "1" } } });
     cache.retain("Parent");
     cache.gc();
-    const { data } = cache.read({ type: "Child", id: "1" });
-    expect(data).toEqual({ id: "1" });
+    const result = cache.read({ type: "Child", id: "1" });
+    expect(result!.data).toEqual({ id: "1" });
   });
 });

@@ -31,7 +31,7 @@ describe("Validation", () => {
       const cache = new Cache({ types: [Type] });
       cache.write({ type: "Type", data: 1, strict: true });
       const readResult = cache.read({ type: "Type" });
-      expect(readResult.data).toBeUndefined();
+      expect(readResult).toBeUndefined();
     });
 
     it("should not write data in strict mode if the incoming data is missing required data", () => {
@@ -42,7 +42,7 @@ describe("Validation", () => {
       const cache = new Cache({ types: [Type] });
       cache.write({ type: "Type", data: {}, strict: true });
       const readResult = cache.read({ type: "Type" });
-      expect(readResult.data).toBeUndefined();
+      expect(readResult).toBeUndefined();
     });
 
     it("should not report invalid fields if the incoming data has additional fields", () => {
@@ -235,65 +235,65 @@ describe("Validation", () => {
     });
 
     it("should not report missing fields if the selected data is found", () => {
-      const { data, missingFields } = cache.read({
+      const result = cache.read({
         type: "Parent",
         select: cql`{ child { a } }`,
       });
-      expect(data).toEqual({ child: { a: "a" } });
-      expect(missingFields).toBeUndefined();
+      expect(result!.data).toEqual({ child: { a: "a" } });
+      expect(result!.missingFields).toBeUndefined();
     });
 
     it("should not report missing fields if the selected data is in the cache but set to undefined", () => {
-      const { data, missingFields } = cache.read({
+      const result = cache.read({
         type: "Parent",
         select: cql`{ child { c } }`,
       });
-      expect(data).toEqual({ child: {} });
-      expect(missingFields).toBeUndefined();
+      expect(result!.data).toEqual({ child: {} });
+      expect(result!.missingFields).toBeUndefined();
     });
 
     it("should report missing fields if the selected data is missing", () => {
-      const { data, missingFields } = cache.read({
+      const result = cache.read({
         type: "Parent",
         select: cql`{ child { b } }`,
       });
-      expect(data).toEqual({ child: {} });
-      expect(missingFields).toEqual([{ path: ["child", "b"] }]);
+      expect(result!.data).toEqual({ child: {} });
+      expect(result!.missingFields).toEqual([{ path: ["child", "b"] }]);
     });
 
     it("should report invalid fields if the entity is invalid", () => {
-      const { data, invalidFields } = cache.read({ type: "Primitive" });
-      expect(data).toEqual(1);
-      expect(invalidFields).toEqual([{ path: [], value: 1 }]);
+      const result = cache.read({ type: "Primitive" });
+      expect(result!.data).toEqual(1);
+      expect(result!.invalidFields).toEqual([{ path: [], value: 1 }]);
     });
 
     it("should not report invalid fields if the selected data is found and valid", () => {
-      const { data, invalidFields } = cache.read({
+      const result = cache.read({
         type: "Parent",
         select: cql`{ child { a } }`,
       });
-      expect(data).toEqual({ child: { a: "a" } });
-      expect(invalidFields).toBeUndefined();
+      expect(result!.data).toEqual({ child: { a: "a" } });
+      expect(result!.invalidFields).toBeUndefined();
     });
 
     it("should report invalid fields if the selected data is in the cache but invalid", () => {
-      const { data, invalidFields } = cache.read({
+      const result = cache.read({
         type: "Parent",
         select: cql`{ child { c } }`,
       });
-      expect(data).toEqual({ child: { c: undefined } });
-      expect(invalidFields).toEqual([
+      expect(result!.data).toEqual({ child: { c: undefined } });
+      expect(result!.invalidFields).toEqual([
         { path: ["child", "c"], value: undefined },
       ]);
     });
 
     it("should report invalid fields if an array contains invalid data", () => {
-      const { data, invalidFields } = cache.read({
+      const result = cache.read({
         type: "Parent",
         select: cql`{ child { e } }`,
       });
-      expect(data).toEqual({ child: { e: ["invalid"] } });
-      expect(invalidFields).toEqual([
+      expect(result!.data).toEqual({ child: { e: ["invalid"] } });
+      expect(result!.invalidFields).toEqual([
         { path: ["child", "e", 0], value: "invalid" },
       ]);
     });

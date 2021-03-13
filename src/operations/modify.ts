@@ -117,28 +117,26 @@ function traverseValue(
     );
 
     for (const fieldName of Object.keys(selectionFields)) {
-      const selectionField = selectionFields[fieldName];
+      if (hasOwn(data, fieldName)) {
+        ctx.path.push(fieldName);
 
-      if (!hasOwn(data, fieldName)) {
-        continue;
-      }
+        const selectionField = selectionFields[fieldName];
 
-      ctx.path.push(fieldName);
+        if (ctx.onField(ctx, data, selectionField) !== false) {
+          if (selectionField.selectionSet) {
+            const objectField = maybeGetObjectField(type, fieldName);
 
-      if (ctx.onField(ctx, data, selectionField) !== false) {
-        if (selectionField.selectionSet) {
-          const objectField = maybeGetObjectField(type, fieldName);
-
-          traverseValue(
-            ctx,
-            selectionField.selectionSet,
-            objectField && objectField.type,
-            data[fieldName]
-          );
+            traverseValue(
+              ctx,
+              selectionField.selectionSet,
+              objectField && objectField.type,
+              data[fieldName]
+            );
+          }
         }
-      }
 
-      ctx.path.pop();
+        ctx.path.pop();
+      }
     }
   } else if (Array.isArray(data)) {
     const ofType = isArrayType(type) ? type.ofType : undefined;

@@ -23,8 +23,8 @@ interface ReadOptions {
 }
 
 export interface ReadResult<T = any> {
-  data?: T;
-  entityID?: string;
+  data: T;
+  entityID: string;
   expiresAt: number;
   invalidFields?: InvalidField[];
   invalidated: boolean;
@@ -54,18 +54,11 @@ export function executeRead<T>(
   type: ValueType,
   optimistic: boolean,
   options: ReadOptions
-): ReadResult<T> {
-  const result: ReadResult = {
-    expiresAt: -1,
-    invalidated: false,
-    selector: options.select,
-    stale: true,
-  };
-
+): ReadResult<T> | undefined {
   const entity = resolveEntity(cache, type, options.id, optimistic);
 
   if (!entity) {
-    return result;
+    return;
   }
 
   const ctx: ReadContext = {
@@ -82,10 +75,17 @@ export function executeRead<T>(
 
   const selectionSet = getSelectionSet(options.select, type);
 
-  result.data = traverseEntity(ctx, entity.id, type, selectionSet);
-  result.entityID = entity.id;
-  result.invalidated = ctx.invalidated;
-  result.expiresAt = ctx.expiresAt;
+  const data = traverseEntity(ctx, entity.id, type, selectionSet);
+
+  const result: ReadResult<T> = {
+    data,
+    entityID: entity.id,
+    expiresAt: ctx.expiresAt,
+    invalidated: ctx.invalidated,
+    selector: options.select,
+    stale:
+      ctx.invalidated || (ctx.expiresAt !== -1 && ctx.expiresAt <= Date.now()),
+  };
 
   if (ctx.missingFields.length) {
     result.missingFields = ctx.missingFields;
@@ -94,10 +94,6 @@ export function executeRead<T>(
   if (ctx.invalidFields.length) {
     result.invalidFields = ctx.invalidFields;
   }
-
-  result.stale =
-    result.invalidated ||
-    (result.expiresAt !== -1 && result.expiresAt <= Date.now());
 
   return result;
 }
@@ -168,12 +164,7 @@ function traverseValue(
       let fieldValueFound = false;
 
       if (objectField && objectField.read) {
-        const fieldReadCtx: ObjectFieldReadContext = {
-          toReference: (options) => {
-            const entityID = ctx.cache.identify(options);
-            return entityID ? createReference(entityID) : undefined;
-          },
-        };
+        const fieldReadCtx = createObjectFieldReadContext(ctx.cache);
         fieldValue = objectField.read(data, fieldReadCtx);
         fieldValueFound = true;
       } else if (hasOwn(data, fieldName)) {
@@ -240,4 +231,15 @@ function checkExpiresAt(ctx: ReadContext, expiresAt: number) {
   if (expiresAt !== -1 && (ctx.expiresAt === -1 || expiresAt < ctx.expiresAt)) {
     ctx.expiresAt = expiresAt;
   }
+}
+
+function createObjectFieldReadContext(cache: Cache): ObjectFieldReadContext {
+  return {
+    toReference: (options) => {
+      const entityID = cache.identify(options);
+      if (entityID) {
+        return createReference(entityID);
+      }
+    },
+  };
 }

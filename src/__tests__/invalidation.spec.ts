@@ -10,12 +10,12 @@ describe("Invalidation", () => {
     const invalidateResult = cache.invalidate({ type: "Type" });
     expect(invalidateResult).toEqual({ updatedEntityIDs: ["Type"] });
     const result1 = cache.read({ type: "Type" });
-    expect(result1.stale).toBe(true);
-    expect(result1.invalidated).toBe(true);
+    expect(result1!.stale).toBe(true);
+    expect(result1!.invalidated).toBe(true);
     const result2 = cache.read({ type: "Type", select: cql`{ a }` });
-    expect(result2.invalidated).toBe(true);
+    expect(result2!.invalidated).toBe(true);
     const result3 = cache.read({ type: "Type", select: cql`{ b }` });
-    expect(result3.invalidated).toBe(true);
+    expect(result3!.invalidated).toBe(true);
   });
 
   it("should remove invalidation when writing to an entity", () => {
@@ -25,8 +25,8 @@ describe("Invalidation", () => {
     cache.invalidate({ type: "Type" });
     cache.write({ type: "Type", data: "a" });
     const readResult = cache.read({ type: "Type" });
-    expect(readResult.stale).toBe(false);
-    expect(readResult.invalidated).toBe(false);
+    expect(readResult!.stale).toBe(false);
+    expect(readResult!.invalidated).toBe(false);
   });
 
   it("should be able to invalidate all entity fields", () => {
@@ -39,11 +39,11 @@ describe("Invalidation", () => {
     });
     expect(invalidateResult).toEqual({ updatedEntityIDs: ["Type"] });
     const result1 = cache.read({ type: "Type" });
-    expect(result1.invalidated).toBe(true);
+    expect(result1!.invalidated).toBe(true);
     const result2 = cache.read({ type: "Type", select: cql`{ a }` });
-    expect(result2.invalidated).toBe(true);
+    expect(result2!.invalidated).toBe(true);
     const result3 = cache.read({ type: "Type", select: cql`{ b }` });
-    expect(result3.invalidated).toBe(true);
+    expect(result3!.invalidated).toBe(true);
   });
 
   it("should be able to invalidate an entity field", () => {
@@ -56,11 +56,11 @@ describe("Invalidation", () => {
     });
     expect(invalidateResult).toEqual({ updatedEntityIDs: ["Type"] });
     const result1 = cache.read({ type: "Type" });
-    expect(result1.invalidated).toBe(true);
+    expect(result1!.invalidated).toBe(true);
     const result2 = cache.read({ type: "Type", select: cql`{ a }` });
-    expect(result2.invalidated).toBe(true);
+    expect(result2!.invalidated).toBe(true);
     const result3 = cache.read({ type: "Type", select: cql`{ b }` });
-    expect(result3.invalidated).toBe(false);
+    expect(result3!.invalidated).toBe(false);
   });
 
   it("should not invalidate nested entities when all fields are selected", () => {
@@ -80,12 +80,12 @@ describe("Invalidation", () => {
       type: "Type",
       select: cql`{ child }`,
     });
-    expect(result2.invalidated).toBe(true);
+    expect(result2!.invalidated).toBe(true);
     const result3 = cache.read({
       type: "Child",
       id: "1",
     });
-    expect(result3.invalidated).toBe(false);
+    expect(result3!.invalidated).toBe(false);
   });
 
   it("should be able to invalidate a nested entity field", () => {
@@ -105,19 +105,19 @@ describe("Invalidation", () => {
       type: "Type",
       select: cql`{ child }`,
     });
-    expect(result2.invalidated).toBe(true);
+    expect(result2!.invalidated).toBe(true);
     const result3 = cache.read({
       type: "Child",
       id: "1",
       select: cql`{ id }`,
     });
-    expect(result3.invalidated).toBe(false);
+    expect(result3!.invalidated).toBe(false);
     const result4 = cache.read({
       type: "Child",
       id: "1",
       select: cql`{ a }`,
     });
-    expect(result4.invalidated).toBe(true);
+    expect(result4!.invalidated).toBe(true);
   });
 
   it("should be able to invalidate nested fields unknown to the schema", () => {
@@ -136,7 +136,7 @@ describe("Invalidation", () => {
       type: "Type",
       select: cql`{ a }`,
     });
-    expect(result2.invalidated).toBe(true);
+    expect(result2!.invalidated).toBe(true);
   });
 
   it("should be able to invalidate object fields within arrays", () => {
@@ -155,11 +155,11 @@ describe("Invalidation", () => {
     });
     expect(invalidateResult).toEqual({ updatedEntityIDs: ["Type"] });
     const result1 = cache.read({ type: "Type" });
-    expect(result1.invalidated).toBe(true);
+    expect(result1!.invalidated).toBe(true);
     const result2 = cache.read({ type: "Type", select: cql`{ a }` });
-    expect(result2.invalidated).toBe(true);
+    expect(result2!.invalidated).toBe(true);
     const result3 = cache.read({ type: "Type", select: cql`{ b }` });
-    expect(result3.invalidated).toBe(false);
+    expect(result3!.invalidated).toBe(false);
   });
 
   it("should remove invalidating state when deleting and inserting", () => {
@@ -169,9 +169,9 @@ describe("Invalidation", () => {
     cache.delete({ type: "Type", select: cql`{ a }` });
     cache.invalidate({ type: "Type", select: cql`{ a }` });
     const result1 = cache.read({ type: "Type", select: cql`{ a }` });
-    expect(result1.invalidated).toBe(false);
+    expect(result1!.invalidated).toBe(false);
     cache.write({ type: "Type", data: { a: "a" } });
     const result2 = cache.read({ type: "Type", select: cql`{ a }` });
-    expect(result2.invalidated).toBe(false);
+    expect(result2!.invalidated).toBe(false);
   });
 });
