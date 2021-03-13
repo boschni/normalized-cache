@@ -37,10 +37,18 @@ const Post = schema.object({
   name: "Post",
 });
 
-cache.write({ type: "Post", data: { id: "1" } });
+cache.write({
+  type: "Post",
+  data: { id: "1", title: "Title" },
+});
+
+const result = cache.read({
+  type: "Post",
+  id: "1",
+});
 ```
 
-By default the cache will look for an `id` property in the data but a custom `id` function can also be defined on the type.
+By default the cache will look for an `id` property in the data but a custom `id` function can also be defined on the type:
 
 ```js
 const Post = schema.object({
@@ -48,7 +56,51 @@ const Post = schema.object({
   id: (post) => post.uid,
 });
 
-cache.write({ type: "Post", data: { uid: "1" } });
+cache.write({
+  type: "Post",
+  data: { uid: "1", title: "Title" },
+});
+
+const result = cache.read({
+  type: "Post",
+  id: "1",
+});
+```
+
+An ID can also be specified when writing:
+
+```js
+const Post = schema.object({
+  name: "Post",
+});
+
+cache.write({
+  type: "Post",
+  id: "1",
+  data: { title: "Title" },
+});
+
+const result = cache.read({
+  type: "Post",
+  id: "1",
+});
+```
+
+When no ID is provided the entity will be stored as singleton:
+
+```js
+const Post = schema.object({
+  name: "Post",
+});
+
+cache.write({
+  type: "Post",
+  data: { title: "Title" },
+});
+
+const result = cache.read({
+  type: "Post",
+});
 ```
 
 ## Relationships

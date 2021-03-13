@@ -404,7 +404,9 @@ cache.write({
   expiresAt: 0,
 });
 
-const result = cache.read({ type: "LoggedIn" });
+const result = cache.read({
+  type: "LoggedIn",
+});
 
 if (result.stale) {
   console.log("Stale data");
@@ -609,8 +611,14 @@ Multiple changes can be wrapped in a transaction to make sure watchers are only 
 
 ```js
 cache.transaction(() => {
-  cache.write({ type: "Post", data: { id: "1", title: "1" } });
-  cache.write({ type: "Post", data: { id: "2", title: "2" } });
+  cache.write({
+    type: "Post",
+    data: { id: "1", title: "1" },
+  });
+  cache.write({
+    type: "Post",
+    data: { id: "2", title: "2" },
+  });
 });
 ```
 
@@ -620,7 +628,10 @@ Wrap changes with `silent` to prevent watchers from being notified:
 
 ```js
 cache.silent(() => {
-  cache.write({ type: "Post", data: { id: "1", title: "1" } });
+  cache.write({
+    type: "Post",
+    data: { id: "1", title: "1" },
+  });
 });
 ```
 
