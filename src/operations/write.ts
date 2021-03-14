@@ -4,7 +4,13 @@ import {
   ValueType,
   resolveWrappedType,
 } from "../schema/types";
-import type { EntitiesRecord, Entity, Reference, InvalidField } from "../types";
+import type {
+  EntitiesRecord,
+  Entity,
+  Reference,
+  InvalidField,
+  PlainObjectWithMeta,
+} from "../types";
 import {
   createReference,
   isObjectWithMeta,
@@ -16,7 +22,7 @@ import {
 import { createRecord, isObject } from "../utils/data";
 import type { Cache } from "../Cache";
 import { updateEntities } from "./shared";
-import { isValid } from "../schema/utils";
+import { isValid, maybeGetObjectField } from "../schema/utils";
 import { ErrorCode, invariant } from "../utils/invariant";
 import {
   DocumentNode,
@@ -187,7 +193,7 @@ function processIncoming(
       return entityRef;
     }
 
-    let resultObj: any;
+    let resultObj: Reference | PlainObjectWithMeta;
 
     if (isReference(incoming)) {
       resultObj = incoming;
@@ -197,22 +203,18 @@ function processIncoming(
         ___expiresAt: {},
       };
 
-      const objectType = isObjectType(type) ? type : undefined;
       const existingObj = isObjectWithMeta(existing) ? existing : undefined;
 
-      for (const key of Object.keys(incoming)) {
-        ctx.path.push(key);
-        const objectField = objectType && objectType.getField(key);
+      for (const fieldName of Object.keys(incoming)) {
+        ctx.path.push(fieldName);
 
-        if (
-          !ctx.onlyWriteKnownFields ||
-          objectField ||
-          (objectType && !objectType.getFieldEntries().length)
-        ) {
-          resultObj.___expiresAt[key] = ctx.expiresAt;
-          resultObj.___invalidated[key] = false;
+        if (shouldWriteField(ctx, type, fieldName)) {
+          const objectField = maybeGetObjectField(type, fieldName);
 
-          const existingFieldValue = existingObj && existingObj[key];
+          resultObj.___expiresAt[fieldName] = ctx.expiresAt;
+          resultObj.___invalidated[fieldName] = false;
+
+          const existingFieldValue = existingObj && existingObj[fieldName];
 
           const fieldSelectionSet = createSelectionSet();
 
@@ -221,7 +223,7 @@ function processIncoming(
             ctx,
             objectField && objectField.type,
             existingFieldValue,
-            incoming[key],
+            incoming[fieldName],
             fieldSelectionSet
           );
           ctx.incomingParents.pop();
@@ -233,9 +235,9 @@ function processIncoming(
             );
           }
 
-          resultObj[key] = newFieldValue;
+          resultObj[fieldName] = newFieldValue;
 
-          const fieldNode = createField(key);
+          const fieldNode = createField(fieldName);
 
           if (fieldSelectionSet.selections.length) {
             fieldNode.selectionSet = fieldSelectionSet;
@@ -244,23 +246,32 @@ function processIncoming(
           selectionSet.selections.push(fieldNode);
         }
 
+        // Update existing value as the current entity might also have been nested in the current field
+        if (entity) {
+          existing = entity.value;
+        }
+
         ctx.path.pop();
       }
     }
 
     if (isObjectType(type) && type.write) {
       resultObj = type.write(resultObj, existing);
-    } else if (entity && isObjectWithMeta(entity.value)) {
+    } else if (
+      entity &&
+      isObjectWithMeta(existing) &&
+      isObjectWithMeta(resultObj)
+    ) {
       // Entities can be safely merged
       resultObj = {
-        ...entity.value,
+        ...existing,
         ...resultObj,
         ___expiresAt: {
-          ...entity.value.___expiresAt,
+          ...existing.___expiresAt,
           ...resultObj.___expiresAt,
         },
         ___invalidated: {
-          ...entity.value.___invalidated,
+          ...existing.___invalidated,
           ...resultObj.___invalidated,
         },
       };
@@ -292,7 +303,12 @@ function processIncoming(
       ctx.incomingParents.pop();
 
       resultArray.push(item);
-      mergeSelectionSet(selectionSet, fieldSelectionSet);
+      extendSelectionSet(selectionSet, fieldSelectionSet);
+
+      // Update existing value as the current entity might also have been nested in the current field
+      if (entity) {
+        existing = entity.value;
+      }
 
       ctx.path.pop();
     }
@@ -316,6 +332,18 @@ function addInvalidField(ctx: WriteContext, value: unknown) {
   ctx.invalidFields.push({ path: [...ctx.path], value });
 }
 
+function shouldWriteField(
+  ctx: WriteContext,
+  type: ValueType | undefined,
+  name: string
+): boolean {
+  if (!ctx.onlyWriteKnownFields || !isObjectType(type)) {
+    return true;
+  }
+
+  return Boolean(type.getField(name) || !type.getFieldEntries().length);
+}
+
 function isCircularEntity(
   ctx: WriteContext,
   incoming: unknown,
@@ -335,52 +363,39 @@ function isCircularEntity(
   return false;
 }
 
-function mergeSelectionSet(
+function extendSelectionSet(
   target: SelectionSetNode,
   source: SelectionSetNode
 ): void {
   for (const sourceSelection of source.selections) {
-    switch (sourceSelection.kind) {
-      case NodeType.InlineFragment:
-        {
-          const targetFragment = target.selections.find(
-            (targetSelection) =>
-              targetSelection.kind === NodeType.InlineFragment &&
-              targetSelection.typeCondition!.name.value ===
-                sourceSelection.typeCondition!.name.value
-          ) as InlineFragmentNode | undefined;
+    let targetSelection: InlineFragmentNode | FieldNode | undefined;
 
-          if (!targetFragment) {
-            target.selections.push(sourceSelection);
-          } else if (
-            targetFragment.selectionSet &&
-            sourceSelection.selectionSet
-          ) {
-            mergeSelectionSet(
-              targetFragment.selectionSet,
-              sourceSelection.selectionSet
-            );
-          }
-        }
-        break;
-      case NodeType.Field:
-        {
-          const targetfield = target.selections.find(
-            (targetSelection) =>
-              targetSelection.kind === NodeType.Field &&
-              targetSelection.name.value === sourceSelection.name.value
-          ) as FieldNode | undefined;
+    if (sourceSelection.kind === NodeType.InlineFragment) {
+      targetSelection = target.selections.find(
+        (selection) =>
+          selection.kind === NodeType.InlineFragment &&
+          selection.typeCondition!.name.value ===
+            sourceSelection.typeCondition!.name.value
+      ) as InlineFragmentNode | undefined;
+    } else if (sourceSelection.kind === NodeType.Field) {
+      targetSelection = target.selections.find(
+        (selection) =>
+          selection.kind === NodeType.Field &&
+          selection.name.value === sourceSelection.name.value
+      ) as FieldNode | undefined;
+    } else {
+      continue;
+    }
 
-          if (!targetfield) {
-            target.selections.push(sourceSelection);
-          } else if (targetfield.selectionSet && sourceSelection.selectionSet) {
-            mergeSelectionSet(
-              targetfield.selectionSet,
-              sourceSelection.selectionSet
-            );
-          }
-        }
-        break;
+    if (!targetSelection) {
+      target.selections.push(sourceSelection);
+    } else if (!targetSelection.selectionSet) {
+      targetSelection.selectionSet = sourceSelection.selectionSet;
+    } else if (targetSelection.selectionSet && sourceSelection.selectionSet) {
+      extendSelectionSet(
+        targetSelection.selectionSet,
+        sourceSelection.selectionSet
+      );
     }
   }
 }

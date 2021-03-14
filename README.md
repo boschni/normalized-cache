@@ -101,7 +101,7 @@ console.log(result3.data);
 
 ```ts
 class Cache {
-  constructor(config?: CacheConfig)
+  constructor(config?: CacheConfig): Cache;
   get(entityID: string, optimistic?: boolean): Entity | undefined;
   set(entityID: string, entity: Entity | undefined, optimistic?: boolean): Entity;
   identify(options: IdentifyOptions): string | undefined;
@@ -112,6 +112,8 @@ class Cache {
   watch(options: WatchOptions): Unsubscribable;
   silent(fn: () => void): void;
   transaction(fn: () => void): void;
+  extract(optimistic?: boolean): SerializedData;
+  restore(data: SerializedData): void;
   reset(): void;
   gc(): void;
   retain(entityID: string): Disposable;

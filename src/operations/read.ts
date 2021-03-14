@@ -16,7 +16,7 @@ import {
 } from "../utils/cache";
 import { hasOwn } from "../utils/data";
 import { getSelectionSet, getSelectionFields } from "./shared";
-import { isValid } from "../schema/utils";
+import { isValid, maybeGetObjectField } from "../schema/utils";
 
 interface ReadOptions {
   id?: unknown;
@@ -151,8 +151,6 @@ function traverseValue(
       ctx.fullEntityResults[entity.id] = result;
     }
 
-    const objectType = isObjectType(type) ? type : undefined;
-
     const selectionFields = getSelectionFields(
       ctx.selector,
       selectionSet,
@@ -163,13 +161,9 @@ function traverseValue(
     for (const fieldName of Object.keys(selectionFields)) {
       ctx.path.push(fieldName);
 
-      const objectField = objectType && objectType.getField(fieldName);
+      if (shouldReadField(ctx, type, fieldName)) {
+        const objectField = maybeGetObjectField(type, fieldName);
 
-      if (
-        !ctx.onlyReadKnownFields ||
-        objectField ||
-        (objectType && !objectType.getFieldEntries().length)
-      ) {
         const selectionField = selectionFields[fieldName];
 
         let fieldValue: unknown;
@@ -255,4 +249,16 @@ function createObjectFieldReadContext(cache: Cache): ObjectFieldReadContext {
       }
     },
   };
+}
+
+function shouldReadField(
+  ctx: ReadContext,
+  type: ValueType | undefined,
+  name: string
+): boolean {
+  if (!ctx.onlyReadKnownFields || !isObjectType(type)) {
+    return true;
+  }
+
+  return Boolean(type.getField(name) || !type.getFieldEntries().length);
 }

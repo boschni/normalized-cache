@@ -2,7 +2,13 @@ import type { ValueType } from "./schema/types";
 import { getReferencedTypes } from "./schema/utils";
 import { executeWrite, WriteResult } from "./operations/write";
 import { executeRead, ReadResult } from "./operations/read";
-import { createRecord, replaceEqualDeep, hasOwn, isObject } from "./utils/data";
+import {
+  createRecord,
+  replaceEqualDeep,
+  hasOwn,
+  isObject,
+  clone,
+} from "./utils/data";
 import { ErrorCode, invariant } from "./utils/invariant";
 import type { EntitiesRecord, Entity } from "./types";
 import type { DocumentNode } from "./language/ast";
@@ -19,14 +25,14 @@ import {
 import { Disposable } from "./utils/Disposable";
 import { Unsubscribable } from "./utils/Unsubscribable";
 
-interface ReadOptions {
+export interface ReadOptions {
   id?: unknown;
   optimistic?: boolean;
   select?: DocumentNode;
   type: string;
 }
 
-interface WriteOptions {
+export interface WriteOptions {
   data: unknown;
   expiresAt?: number;
   id?: unknown;
@@ -34,27 +40,27 @@ interface WriteOptions {
   type: string;
 }
 
-interface DeleteOptions {
+export interface DeleteOptions {
   id?: unknown;
   optimistic?: boolean;
   select?: DocumentNode;
   type: string;
 }
 
-interface InvalidateOptions {
+export interface InvalidateOptions {
   id?: unknown;
   optimistic?: boolean;
   select?: DocumentNode;
   type: string;
 }
 
-interface IdentifyOptions {
+export interface IdentifyOptions {
   data?: unknown;
   id?: unknown;
   type: string;
 }
 
-interface WatchOptions<T = any> extends ReadOptions {
+export interface WatchOptions<T = any> extends ReadOptions {
   callback: (
     result: ReadResult<T> | undefined,
     prevResult?: ReadResult<T>
@@ -86,6 +92,11 @@ class OptimisticUpdateDisposable extends Disposable {
 interface OptimisticUpdate {
   id: number;
   updateFn: OptimisticUpdateFn;
+}
+
+interface SerializedData {
+  entities: EntitiesRecord;
+  optimisticEntities?: EntitiesRecord;
 }
 
 export interface CacheConfig {
@@ -298,9 +309,31 @@ export class Cache {
 
   reset(): void {
     this._entities = createRecord();
+    this._entitiesRefCount = createRecord();
     this._optimisticEntities = createRecord();
-    this._readResults = createRecord();
     this._optimisticUpdates = [];
+    this._readResults = createRecord();
+  }
+
+  extract(optimistic?: boolean): SerializedData {
+    const state: SerializedData = {
+      entities: clone(this._entities),
+    };
+
+    if (optimistic) {
+      state.optimisticEntities = clone(this._optimisticEntities);
+    }
+
+    return state;
+  }
+
+  restore(data: SerializedData): void {
+    this.reset();
+    this._entities = data.entities;
+
+    if (data.optimisticEntities) {
+      this._optimisticEntities = data.optimisticEntities;
+    }
   }
 
   retain(entityID: string): Disposable {
@@ -322,7 +355,7 @@ export class Cache {
 
     // Find all entities referenced by retained entities
     for (const entityID of Object.keys(this._entitiesRefCount)) {
-      if (this._entitiesRefCount[entityID]) {
+      if (this._entitiesRefCount[entityID] > 0) {
         findReferencedEntitiesByEntity(
           this._entities,
           referencedEntities,
