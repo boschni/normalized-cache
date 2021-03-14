@@ -103,6 +103,7 @@ export class ObjectType {
     Record<string, ValueType | ValueType[] | ObjectFieldType>
   >;
   _resolvedFields?: Record<string, ObjectFieldType>;
+  _resolvedFieldEntries?: [string, ObjectFieldType][];
   _isOfType?: (value: any) => boolean;
 
   constructor(config: ObjectTypeConfig = {}) {
@@ -117,7 +118,7 @@ export class ObjectType {
     }
   }
 
-  getFields(): Record<string, ObjectFieldType> {
+  getFieldsRecord(): Record<string, ObjectFieldType> {
     if (!this._resolvedFields) {
       const fields: Record<string, ObjectFieldType> = {};
 
@@ -144,8 +145,20 @@ export class ObjectType {
     return this._resolvedFields;
   }
 
+  getFieldEntries(): [string, ObjectFieldType][] {
+    if (!this._resolvedFieldEntries) {
+      const entries: [string, ObjectFieldType][] = [];
+      const fields = this.getFieldsRecord();
+      for (const fieldName of Object.keys(fields)) {
+        entries.push([fieldName, fields[fieldName]]);
+      }
+      this._resolvedFieldEntries = entries;
+    }
+    return this._resolvedFieldEntries;
+  }
+
   getField(name: string): ObjectFieldType | undefined {
-    const fields = this.getFields();
+    const fields = this.getFieldsRecord();
 
     if (!fields[name]) {
       const index = name.indexOf("(");

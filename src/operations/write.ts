@@ -13,10 +13,10 @@ import {
   identifyByType,
   isReference,
 } from "../utils/cache";
-import { createRecord, isObject, hasOwn } from "../utils/data";
+import { createRecord, isObject } from "../utils/data";
 import type { Cache } from "../Cache";
 import { updateEntities } from "./shared";
-import { isValid, maybeGetObjectField } from "../schema/utils";
+import { isValid } from "../schema/utils";
 import { ErrorCode, invariant } from "../utils/invariant";
 import {
   DocumentNode,
@@ -36,13 +36,14 @@ interface WriteOptions {
   data: unknown;
   expiresAt?: number;
   id?: unknown;
-  strict?: boolean;
+  onlyWriteKnownFields?: boolean;
 }
 
 export interface WriteResult {
+  entityID: string;
   invalidFields?: InvalidField[];
-  updatedEntityIDs?: string[];
   selector?: DocumentNode;
+  updatedEntityIDs?: string[];
 }
 
 interface WriteContext {
@@ -51,6 +52,7 @@ interface WriteContext {
   expiresAt: number;
   incomingParents: unknown[];
   invalidFields: InvalidField[];
+  onlyWriteKnownFields: boolean | undefined;
   optimistic?: boolean;
   path: (string | number)[];
   rootEntityID: string;
@@ -86,20 +88,18 @@ export function executeWrite(
     optimistic,
     path: [],
     rootEntityID: entityID,
+    onlyWriteKnownFields: options.onlyWriteKnownFields,
   };
 
   const selectionSet = createSelectionSet();
 
   processIncoming(ctx, type, existingEntity, options.data, selectionSet);
 
-  let updatedEntityIDs: string[] = [];
+  const updatedEntityIDs = updateEntities(cache, ctx.entities, optimistic);
 
-  // In strict mode only persist when the data is valid
-  if (!ctx.invalidFields.length || !options.strict) {
-    updatedEntityIDs = updateEntities(cache, ctx.entities, optimistic);
-  }
-
-  const result: WriteResult = {};
+  const result: WriteResult = {
+    entityID,
+  };
 
   if (updatedEntityIDs.length) {
     result.updatedEntityIDs = updatedEntityIDs;
@@ -187,22 +187,6 @@ function processIncoming(
       return entityRef;
     }
 
-    // Validate fields which are defined in the schema but not present in the incoming data
-    if (isObjectType(type)) {
-      const fields = type.getFields();
-      for (const name of Object.keys(fields)) {
-        if (
-          !hasOwn(incoming, name) &&
-          !isValid(fields[name].type, incoming[name])
-        ) {
-          ctx.path.push(name);
-          addInvalidField(ctx, incoming[name]);
-          ctx.path.pop();
-        }
-      }
-    }
-
-    const existingObj = isObjectWithMeta(existing) ? existing : undefined;
     let resultObj: any;
 
     if (isReference(incoming)) {
@@ -213,41 +197,53 @@ function processIncoming(
         ___expiresAt: {},
       };
 
+      const objectType = isObjectType(type) ? type : undefined;
+      const existingObj = isObjectWithMeta(existing) ? existing : undefined;
+
       for (const key of Object.keys(incoming)) {
         ctx.path.push(key);
-        ctx.incomingParents.push(incoming);
+        const objectField = objectType && objectType.getField(key);
 
-        resultObj.___expiresAt[key] = ctx.expiresAt;
-        resultObj.___invalidated[key] = false;
+        if (
+          !ctx.onlyWriteKnownFields ||
+          objectField ||
+          (objectType && !objectType.getFieldEntries().length)
+        ) {
+          resultObj.___expiresAt[key] = ctx.expiresAt;
+          resultObj.___invalidated[key] = false;
 
-        const objectField = maybeGetObjectField(type, key);
-        const existingFieldValue = existingObj && existingObj[key];
+          const existingFieldValue = existingObj && existingObj[key];
 
-        const fieldSelectionSet = createSelectionSet();
+          const fieldSelectionSet = createSelectionSet();
 
-        let newFieldValue = processIncoming(
-          ctx,
-          objectField && objectField.type,
-          existingFieldValue,
-          incoming[key],
-          fieldSelectionSet
-        );
+          ctx.incomingParents.push(incoming);
+          let newFieldValue = processIncoming(
+            ctx,
+            objectField && objectField.type,
+            existingFieldValue,
+            incoming[key],
+            fieldSelectionSet
+          );
+          ctx.incomingParents.pop();
 
-        if (objectField && objectField.write) {
-          newFieldValue = objectField.write(newFieldValue, existingFieldValue);
+          if (objectField && objectField.write) {
+            newFieldValue = objectField.write(
+              newFieldValue,
+              existingFieldValue
+            );
+          }
+
+          resultObj[key] = newFieldValue;
+
+          const fieldNode = createField(key);
+
+          if (fieldSelectionSet.selections.length) {
+            fieldNode.selectionSet = fieldSelectionSet;
+          }
+
+          selectionSet.selections.push(fieldNode);
         }
 
-        resultObj[key] = newFieldValue;
-
-        const fieldNode = createField(key);
-
-        if (fieldSelectionSet.selections.length) {
-          fieldNode.selectionSet = fieldSelectionSet;
-        }
-
-        selectionSet.selections.push(fieldNode);
-
-        ctx.incomingParents.pop();
         ctx.path.pop();
       }
     }
@@ -282,23 +278,22 @@ function processIncoming(
 
     for (let i = 0; i < incoming.length; i++) {
       ctx.path.push(i);
-      ctx.incomingParents.push(incoming);
 
       const fieldSelectionSet = createSelectionSet();
 
-      resultArray.push(
-        processIncoming(
-          ctx,
-          ofType,
-          existingArray && existingArray[i],
-          incoming[i],
-          fieldSelectionSet
-        )
+      ctx.incomingParents.push(incoming);
+      const item = processIncoming(
+        ctx,
+        ofType,
+        existingArray && existingArray[i],
+        incoming[i],
+        fieldSelectionSet
       );
+      ctx.incomingParents.pop();
 
+      resultArray.push(item);
       mergeSelectionSet(selectionSet, fieldSelectionSet);
 
-      ctx.incomingParents.pop();
       ctx.path.pop();
     }
 

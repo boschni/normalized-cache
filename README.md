@@ -101,8 +101,9 @@ console.log(result3.data);
 
 ```ts
 class Cache {
+  constructor(config?: CacheConfig)
   get(entityID: string, optimistic?: boolean): Entity | undefined;
-  set(entity: Entity, optimistic?: boolean): Entity;
+  set(entityID: string, entity: Entity | undefined, optimistic?: boolean): Entity;
   identify(options: IdentifyOptions): string | undefined;
   read(options: ReadOptions): ReadResult | undefined;
   write(options: WriteOptions): WriteResult;
@@ -116,6 +117,12 @@ class Cache {
   retain(entityID: string): Disposable;
   addOptimisticUpdate(updateFn: OptimisticUpdateFn): OptimisticUpdateDisposable;
   removeOptimisticUpdate(id: number): void;
+}
+
+interface CacheConfig {
+  types?: ValueType[];
+  onlyReadKnownFields?: boolean;
+  onlyWriteKnownFields?: boolean;
 }
 
 const schema = {

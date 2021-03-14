@@ -26,23 +26,23 @@ describe("Validation", () => {
       expect(invalidFields).toEqual([{ path: [], value: undefined }]);
     });
 
-    it("should not write data in strict mode if the incoming data does not match the schema", () => {
-      const Type = schema.string({ name: "Type" });
-      const cache = new Cache({ types: [Type] });
-      cache.write({ type: "Type", data: 1, strict: true });
-      const readResult = cache.read({ type: "Type" });
-      expect(readResult).toBeUndefined();
-    });
-
-    it("should not write data in strict mode if the incoming data is missing required data", () => {
+    it("should not write fields unknown to the schema if onlyWriteKnownFields is enabled", () => {
       const Type = schema.object({
         name: "Type",
-        fields: { a: schema.nonNullable(schema.string()) },
+        fields: { a: schema.string() },
       });
-      const cache = new Cache({ types: [Type] });
-      cache.write({ type: "Type", data: {}, strict: true });
+      const cache = new Cache({ types: [Type], onlyWriteKnownFields: true });
+      cache.write({ type: "Type", data: { a: "a", b: "b" } });
       const readResult = cache.read({ type: "Type" });
-      expect(readResult).toBeUndefined();
+      expect(readResult!.data).toEqual({ a: "a" });
+    });
+
+    it("should write fields unknown to the schema if an object does not have fields defined and onlyWriteKnownFields is enabled", () => {
+      const Type = schema.object({ name: "Type" });
+      const cache = new Cache({ types: [Type], onlyWriteKnownFields: true });
+      cache.write({ type: "Type", data: { a: "a", b: "b" } });
+      const readResult = cache.read({ type: "Type" });
+      expect(readResult!.data).toEqual({ a: "a", b: "b" });
     });
 
     it("should not report invalid fields if the incoming data has additional fields", () => {
@@ -186,38 +186,23 @@ describe("Validation", () => {
       });
       expect(invalidFields).toBeUndefined();
     });
-
-    it("should report invalid fields if the incoming data is missing required data", () => {
-      const Child = schema.object({
-        name: "Child",
-        fields: {
-          a: schema.nonNullable(schema.number()),
-        },
-      });
-      const Parent = schema.object({
-        name: "Parent",
-        fields: { child: Child },
-      });
-      const cache = new Cache({ types: [Parent] });
-      const { invalidFields } = cache.write({
-        type: "Parent",
-        data: { child: { id: "1" } },
-      });
-      expect(invalidFields).toEqual([
-        { path: ["child", "a"], value: undefined },
-      ]);
-    });
   });
 
   describe("reading", () => {
     const Child = schema.object({
       name: "Child",
       fields: {
+        id: schema.string(),
         a: schema.string(),
         b: schema.nonNullable(schema.number()),
         c: schema.nonNullable(schema.number()),
         d: schema.number(),
         e: schema.array(schema.number()),
+        f: {
+          type: schema.string(),
+          read: () => 1,
+        },
+        g: schema.object(),
       },
     });
     const Parent = schema.object({
@@ -227,14 +212,13 @@ describe("Validation", () => {
     const Primitive = schema.string({
       name: "Primitive",
     });
-    const cache = new Cache({ types: [Parent, Primitive] });
-    cache.write({ type: "Primitive", data: 1 });
-    cache.write({
-      type: "Parent",
-      data: { child: { id: "1", a: "a", c: undefined, e: ["invalid"] } },
-    });
 
     it("should not report missing fields if the selected data is found", () => {
+      const cache = new Cache({ types: [Parent] });
+      cache.write({
+        type: "Parent",
+        data: { child: { id: "1", a: "a" } },
+      });
       const result = cache.read({
         type: "Parent",
         select: cql`{ child { a } }`,
@@ -244,6 +228,11 @@ describe("Validation", () => {
     });
 
     it("should not report missing fields if the selected data is in the cache but set to undefined", () => {
+      const cache = new Cache({ types: [Parent] });
+      cache.write({
+        type: "Parent",
+        data: { child: { id: "1", c: undefined } },
+      });
       const result = cache.read({
         type: "Parent",
         select: cql`{ child { c } }`,
@@ -253,6 +242,11 @@ describe("Validation", () => {
     });
 
     it("should report missing fields if the selected data is missing", () => {
+      const cache = new Cache({ types: [Parent] });
+      cache.write({
+        type: "Parent",
+        data: { child: { id: "1" } },
+      });
       const result = cache.read({
         type: "Parent",
         select: cql`{ child { b } }`,
@@ -262,12 +256,35 @@ describe("Validation", () => {
     });
 
     it("should report invalid fields if the entity is invalid", () => {
+      const cache = new Cache({ types: [Primitive] });
+      cache.write({ type: "Primitive", data: 1 });
       const result = cache.read({ type: "Primitive" });
       expect(result!.data).toEqual(1);
       expect(result!.invalidFields).toEqual([{ path: [], value: 1 }]);
     });
 
+    it("should report invalid fields if the computed field is invalid", () => {
+      const cache = new Cache({ types: [Parent] });
+      cache.write({
+        type: "Parent",
+        data: { child: { id: "1" } },
+      });
+      const result = cache.read({
+        type: "Parent",
+        select: cql`{ child { f } }`,
+      });
+      expect(result!.data).toEqual({ child: { f: 1 } });
+      expect(result!.invalidFields).toEqual([
+        { path: ["child", "f"], value: 1 },
+      ]);
+    });
+
     it("should not report invalid fields if the selected data is found and valid", () => {
+      const cache = new Cache({ types: [Parent] });
+      cache.write({
+        type: "Parent",
+        data: { child: { id: "1", a: "a" } },
+      });
       const result = cache.read({
         type: "Parent",
         select: cql`{ child { a } }`,
@@ -277,6 +294,11 @@ describe("Validation", () => {
     });
 
     it("should report invalid fields if the selected data is in the cache but invalid", () => {
+      const cache = new Cache({ types: [Parent] });
+      cache.write({
+        type: "Parent",
+        data: { child: { id: "1", c: undefined } },
+      });
       const result = cache.read({
         type: "Parent",
         select: cql`{ child { c } }`,
@@ -288,6 +310,11 @@ describe("Validation", () => {
     });
 
     it("should report invalid fields if an array contains invalid data", () => {
+      const cache = new Cache({ types: [Parent] });
+      cache.write({
+        type: "Parent",
+        data: { child: { id: "1", e: ["invalid"] } },
+      });
       const result = cache.read({
         type: "Parent",
         select: cql`{ child { e } }`,
@@ -296,6 +323,32 @@ describe("Validation", () => {
       expect(result!.invalidFields).toEqual([
         { path: ["child", "e", 0], value: "invalid" },
       ]);
+    });
+
+    it("should read fields from objects without fields defined when onlyReadKnownFields is enabled", () => {
+      const cache = new Cache({ types: [Parent], onlyReadKnownFields: true });
+      cache.write({
+        type: "Parent",
+        data: { child: { id: "1", g: { a: "a" } } },
+      });
+      const readResult = cache.read({
+        type: "Parent",
+        select: cql`{ child { g { a } } }`,
+      });
+      expect(readResult!.data).toEqual({ child: { g: { a: "a" } } });
+    });
+
+    it("should not read fields unknown to the schema if onlyReadKnownFields is enabled", () => {
+      const cache = new Cache({ types: [Parent], onlyReadKnownFields: true });
+      cache.write({
+        type: "Parent",
+        data: { child: { id: "1", a: "a", z: "z" } },
+      });
+      const readResult = cache.read({
+        type: "Parent",
+        select: cql`{ child { a z } }`,
+      });
+      expect(readResult!.data).toEqual({ child: { a: "a" } });
     });
   });
 });

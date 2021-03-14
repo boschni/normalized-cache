@@ -104,11 +104,10 @@ function addAllFields(
     }
   }
   if (isObjectType(type)) {
-    const typeFields = type.getFields();
-    for (const key of Object.keys(typeFields)) {
-      fields[key] = {
+    for (const entry of type.getFieldEntries()) {
+      fields[entry[0]] = {
         kind: NodeType.Field,
-        name: { kind: NodeType.Name, value: key },
+        name: { kind: NodeType.Name, value: entry[0] },
       };
     }
   }

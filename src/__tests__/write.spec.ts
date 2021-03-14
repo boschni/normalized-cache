@@ -1,13 +1,17 @@
-import { Cache, schema } from "..";
-import { cql } from "../language/tag";
+import { Cache, cql, WriteResult, schema } from "..";
 
 describe("write", () => {
   it("should be able to write singleton entities", () => {
     const Type = schema.string({ name: "Type" });
     const cache = new Cache({ types: [Type] });
-    cache.write({ type: "Type", data: "a" });
-    const result = cache.read({ type: "Type" });
-    expect(result!.data).toBe("a");
+    const writeResult = cache.write({ type: "Type", data: "a" });
+    const expectedWriteResult: WriteResult = {
+      entityID: "Type",
+      updatedEntityIDs: ["Type"],
+    };
+    expect(writeResult).toEqual(expectedWriteResult);
+    const readResult = cache.read({ type: "Type" });
+    expect(readResult!.data).toEqual("a");
   });
 
   it("should be able to write entities with a specific ID", () => {

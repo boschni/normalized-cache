@@ -62,11 +62,9 @@ export function visitTypes(
   }
 
   if (isObjectType(type)) {
-    const fields = type.getFields();
-    for (const field of Object.keys(fields)) {
-      const fieldType = fields[field].type;
-      if (fieldType) {
-        visitTypes(fieldType, config);
+    for (const entry of type.getFieldEntries()) {
+      if (entry[1].type) {
+        visitTypes(entry[1].type, config);
       }
     }
   } else if (isArrayType(type)) {

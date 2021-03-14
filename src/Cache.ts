@@ -31,7 +31,6 @@ interface WriteOptions {
   expiresAt?: number;
   id?: unknown;
   optimistic?: boolean;
-  strict?: boolean;
   type: string;
 }
 
@@ -95,21 +94,13 @@ export interface CacheConfig {
    */
   types?: ValueType[];
   /**
-   * If enabled, only valid data will be returned from the cache.
-   */
-  strictReadTypeChecks?: boolean;
-  /**
    * If enabled, only fields known to the schema will be returned from the cache.
    */
-  strictReadFieldChecks?: boolean;
-  /**
-   * If enabled, only valid data will be written to the cache.
-   */
-  strictWriteTypeChecks?: boolean;
+  onlyReadKnownFields?: boolean;
   /**
    * If enabled, only fields known to the schema will be written to the cache.
    */
-  strictWriteFieldChecks?: boolean;
+  onlyWriteKnownFields?: boolean;
 }
 
 export class Cache {
@@ -206,7 +197,10 @@ export class Cache {
       return cachedResult.result;
     }
 
-    let result = executeRead<T>(this, type, optimistic, options);
+    let result = executeRead<T>(this, type, optimistic, {
+      ...options,
+      onlyReadKnownFields: this._config.onlyReadKnownFields,
+    });
 
     // Only optimistic results are cached as non-optimistic reads should not occur often
     if (optimistic) {
@@ -222,7 +216,10 @@ export class Cache {
   write(options: WriteOptions): WriteResult {
     const type = ensureType(this, options.type);
     const optimistic = shouldWriteOptimistic(this, options.optimistic);
-    return executeWrite(this, type, optimistic, options);
+    return executeWrite(this, type, optimistic, {
+      ...options,
+      onlyWriteKnownFields: this._config.onlyWriteKnownFields,
+    });
   }
 
   delete(options: DeleteOptions): DeleteResult | undefined {

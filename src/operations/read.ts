@@ -2,6 +2,7 @@ import type { Cache } from "../Cache";
 import type { Entity, InvalidField, MissingField, PlainObject } from "../types";
 import {
   isArrayType,
+  isObjectType,
   ObjectFieldReadContext,
   resolveWrappedType,
   ValueType,
@@ -15,10 +16,11 @@ import {
 } from "../utils/cache";
 import { hasOwn } from "../utils/data";
 import { getSelectionSet, getSelectionFields } from "./shared";
-import { isValid, maybeGetObjectField } from "../schema/utils";
+import { isValid } from "../schema/utils";
 
 interface ReadOptions {
   id?: unknown;
+  onlyReadKnownFields?: boolean;
   select?: DocumentNode;
 }
 
@@ -44,6 +46,7 @@ interface ReadContext {
    * This is used to build results with circular references.
    */
   fullEntityResults: Record<string, PlainObject>;
+  onlyReadKnownFields?: boolean;
   optimistic?: boolean;
   path: (string | number)[];
   selector: DocumentNode | undefined;
@@ -68,6 +71,7 @@ export function executeRead<T>(
     invalidated: false,
     missingFields: [],
     fullEntityResults: {},
+    onlyReadKnownFields: options.onlyReadKnownFields,
     optimistic,
     selector: options.select,
     path: [],
@@ -147,6 +151,8 @@ function traverseValue(
       ctx.fullEntityResults[entity.id] = result;
     }
 
+    const objectType = isObjectType(type) ? type : undefined;
+
     const selectionFields = getSelectionFields(
       ctx.selector,
       selectionSet,
@@ -157,38 +163,45 @@ function traverseValue(
     for (const fieldName of Object.keys(selectionFields)) {
       ctx.path.push(fieldName);
 
-      const selectionField = selectionFields[fieldName];
-      const objectField = maybeGetObjectField(type, fieldName);
+      const objectField = objectType && objectType.getField(fieldName);
 
-      let fieldValue: unknown;
-      let fieldValueFound = false;
+      if (
+        !ctx.onlyReadKnownFields ||
+        objectField ||
+        (objectType && !objectType.getFieldEntries().length)
+      ) {
+        const selectionField = selectionFields[fieldName];
 
-      if (objectField && objectField.read) {
-        const fieldReadCtx = createObjectFieldReadContext(ctx.cache);
-        fieldValue = objectField.read(data, fieldReadCtx);
-        fieldValueFound = true;
-      } else if (hasOwn(data, fieldName)) {
-        fieldValue = data[fieldName];
-        fieldValueFound = true;
-      }
+        let fieldValue: unknown;
+        let fieldValueFound = false;
 
-      if (fieldValueFound) {
-        checkExpiresAt(ctx, data.___expiresAt[fieldName]);
-        checkInvalidated(ctx, data.___invalidated[fieldName]);
+        if (objectField && objectField.read) {
+          const fieldReadCtx = createObjectFieldReadContext(ctx.cache);
+          fieldValue = objectField.read(data, fieldReadCtx);
+          fieldValueFound = true;
+        } else if (hasOwn(data, fieldName)) {
+          fieldValue = data[fieldName];
+          fieldValueFound = true;
+        }
 
-        const alias = selectionField.alias
-          ? selectionField.alias.value
-          : fieldName;
+        if (fieldValueFound) {
+          checkExpiresAt(ctx, data.___expiresAt[fieldName]);
+          checkInvalidated(ctx, data.___invalidated[fieldName]);
 
-        result[alias] = traverseValue(
-          ctx,
-          selectionField.selectionSet,
-          objectField && objectField.type,
-          undefined,
-          fieldValue
-        );
-      } else {
-        addMissingField(ctx);
+          const alias = selectionField.alias
+            ? selectionField.alias.value
+            : fieldName;
+
+          result[alias] = traverseValue(
+            ctx,
+            selectionField.selectionSet,
+            objectField && objectField.type,
+            undefined,
+            fieldValue
+          );
+        } else {
+          addMissingField(ctx);
+        }
       }
 
       ctx.path.pop();
