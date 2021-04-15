@@ -14,7 +14,7 @@ export function invariant(
 ): asserts condition {
   if (!condition) {
     if (typeof msgOrCode === "number") {
-      msgOrCode = "Minfied Error #" + msgOrCode;
+      msgOrCode = "Minified Error #" + msgOrCode;
     }
     const error = new Error(msgOrCode);
     error.name = "Cache Error";
